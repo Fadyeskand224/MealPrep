@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { Icon, MacroBar, Num, Ring, Tile } from './ui';
+import ExpiryAlert from './ExpiryAlert';
 import { RECIPE_BY_ID, MEALS, MEAL_LABEL } from '../data/recipes';
 import { dayTotals, goalsFor } from '../lib/planner';
 import { fmtDay, fmtFull, planDate } from '../lib/store';
 
 export default function Dashboard({
-  user, data, day, setDay, onGenerate, onOpen, onSwap, onToggleEaten,
+  user, data, day, setDay, onGenerate, onOpen, onSwap, onToggleEaten, expiring = [], onGoPantry,
 }) {
   const { plan, eaten, target } = data;
   const goals = goalsFor(target);
@@ -21,6 +22,7 @@ export default function Dashboard({
             <h1>Let’s eat well</h1>
           </div>
         </header>
+        <ExpiryAlert items={expiring} onClick={onGoPantry} />
         <div className="empty hero-empty">
           <div className="empty-photos" aria-hidden="true">
             {['d-baked-salmon', 'b-banana-pancakes', 'l-greek-chickpea-salad'].map((id) => (
@@ -63,6 +65,8 @@ export default function Dashboard({
         </div>
         <div className="avatar" aria-hidden="true">{user.name[0].toUpperCase()}</div>
       </header>
+
+      <ExpiryAlert items={expiring} onClick={onGoPantry} />
 
       <div className="daybar">
         <button className="icon-btn" onClick={() => setDay(Math.max(0, day - 1))} disabled={day === 0} aria-label="Previous day">‹</button>

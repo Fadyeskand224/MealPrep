@@ -119,8 +119,9 @@ const norm = (s) =>
     .join(' ');
 
 // Words that change what an ingredient *is*: "rice" must not satisfy "rice noodles",
-// "potato" must not satisfy "sweet potato", "onion" must not satisfy "green onion".
-const DEFINING = new Set(['noodle', 'sauce', 'powder', 'paste', 'broth', 'butter', 'milk', 'cream', 'dressing', 'bun', 'dough', 'sweet', 'green', 'red']);
+// "potato" must not satisfy "sweet potato", "onion" must not satisfy "green onion", and fresh
+// "tomato" must not satisfy "canned tomatoes".
+const DEFINING = new Set(['noodle', 'sauce', 'powder', 'paste', 'broth', 'butter', 'milk', 'cream', 'dressing', 'bun', 'dough', 'sweet', 'green', 'red', 'canned', 'smoked']);
 
 /**
  * A pantry item matches an ingredient if all of its words appear in the ingredient name

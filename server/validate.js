@@ -25,6 +25,23 @@ function validatePlan(plan) {
   return { createdAt: plan.createdAt, days };
 }
 
+/** { "item name": "YYYY-MM-DD" } with real calendar dates only. */
+function validateExpiry(obj) {
+  if (!isObj(obj)) throw new Error('expiry');
+  const keys = Object.keys(obj);
+  if (keys.length > 200) throw new Error('expiry size');
+  const out = {};
+  for (const k of keys) {
+    const v = obj[k];
+    if (FORBIDDEN_KEYS.has(k) || !str(k, 60) || typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new Error('expiry entry');
+    const [y, m, d] = v.split('-').map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    if (y < 2000 || y > 2100 || date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) throw new Error('expiry date');
+    out[k] = v;
+  }
+  return out;
+}
+
 function validateFlags(obj, maxKeys, keyPattern) {
   if (!isObj(obj)) throw new Error('flags');
   const keys = Object.keys(obj);
@@ -41,9 +58,12 @@ function validateFlags(obj, maxKeys, keyPattern) {
 export function validateUserData(data) {
   try {
     if (!isObj(data)) throw new Error('shape');
-    const allowed = ['plan', 'eaten', 'pantry', 'dislikes', 'favorites', 'target', 'groceryChecked'];
+    const allowed = ['plan', 'eaten', 'pantry', 'dislikes', 'favorites', 'target', 'groceryChecked', 'pantryExpiry', 'expiryWarnDays'];
     if (Object.keys(data).some((k) => !allowed.includes(k))) throw new Error('unknown key');
     if (!Number.isInteger(data.target) || data.target < 800 || data.target > 6000) throw new Error('target');
+    // Optional so older clients keep working, but if present it must be valid (null is not "absent").
+    const warn = 'expiryWarnDays' in data ? data.expiryWarnDays : 3;
+    if (!Number.isInteger(warn) || warn < 1 || warn > 14) throw new Error('warn days');
     if (!strList(data.pantry, 200, 60) || !strList(data.dislikes, 300, 64) || !strList(data.favorites, 300, 64)) throw new Error('lists');
     return {
       ok: true,
@@ -55,6 +75,8 @@ export function validateUserData(data) {
         favorites: data.favorites,
         target: data.target,
         groceryChecked: validateFlags(data.groceryChecked ?? {}, 400, null),
+        pantryExpiry: validateExpiry('pantryExpiry' in data ? data.pantryExpiry : {}),
+        expiryWarnDays: warn,
       },
     };
   } catch {

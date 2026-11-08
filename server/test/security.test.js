@@ -52,6 +52,7 @@ const login = (t, email = USER.email, password = USER.password) => t.call('POST'
 const GOOD_DATA = {
   plan: { createdAt: '2026-11-08', days: Array.from({ length: 7 }, () => ({ breakfast: 'b-1', lunch: 'l-1', dinner: 'd-1' })) },
   eaten: { '0:lunch': true }, pantry: ['eggs'], dislikes: [], favorites: ['b-1'], target: 1500, groceryChecked: { eggs: true },
+  pantryExpiry: { eggs: '2026-11-20' }, expiryWarnDays: 3,
 };
 
 test('passwords are stored as salted scrypt hashes, never plaintext', async () => {
@@ -397,4 +398,43 @@ test('existing databases are upgraded in place with the consent columns', async 
   assert.ok(cols.includes('terms_accepted_at') && cols.includes('terms_version'));
   assert.equal((await db.get('SELECT COUNT(*) c FROM users')).c, 1, 'existing rows survive');
   db.close();
+});
+
+test('pantry expiry data: valid dates are stored, bad ones and hostile keys are rejected', async () => {
+  const t = await boot();
+  const a = await signup(t);
+  const put = async (patch) => (await t.call('PUT', '/api/data', { cookie: a.cookie, body: { data: { ...GOOD_DATA, ...patch } } })).status;
+
+  assert.equal(await put({ pantryExpiry: { eggs: '2026-11-20', milk: '2028-02-29' }, expiryWarnDays: 5 }), 200);
+  const stored = (await t.call('GET', '/api/data', { cookie: a.cookie })).json.data;
+  assert.deepEqual(stored.pantryExpiry, { eggs: '2026-11-20', milk: '2028-02-29' });
+  assert.equal(stored.expiryWarnDays, 5);
+
+  for (const bad of ['2026-02-30', '2026-13-01', 'tomorrow', '2026-11-08T10:00:00Z', '11/08/2026', '1999-01-01', '2101-01-01', "'; DROP TABLE users;--", 20261108, null, ['2026-11-08']]) {
+    assert.equal(await put({ pantryExpiry: { eggs: bad } }), 400, `${JSON.stringify(bad)} must be rejected`);
+  }
+  assert.equal(await put({ pantryExpiry: ['2026-11-08'] }), 400);
+  assert.equal(await put({ pantryExpiry: 'soon' }), 400);
+  assert.equal(await put({ pantryExpiry: null }), 400);
+  assert.equal(await put({ pantryExpiry: { ['x'.repeat(100)]: '2026-11-08' } }), 400, 'overlong item name');
+  assert.equal(await put({ pantryExpiry: Object.fromEntries(Array.from({ length: 250 }, (_, i) => [`item${i}`, '2026-11-08'])) }), 400, 'too many entries');
+  const proto = await t.call('PUT', '/api/data', { cookie: a.cookie, raw: JSON.stringify({ data: { ...GOOD_DATA } }).replace('"pantryExpiry":{', '"pantryExpiry":{"__proto__":"2026-11-08",') });
+  assert.equal(proto.status, 400);
+  assert.equal({}.polluted, undefined);
+  for (const w of [0, 15, 2.5, '3', null]) assert.equal(await put({ expiryWarnDays: w }), 400, `warn days ${JSON.stringify(w)} must be rejected`);
+
+  // rejected writes left the earlier good data untouched
+  assert.deepEqual((await t.call('GET', '/api/data', { cookie: a.cookie })).json.data.pantryExpiry, { eggs: '2026-11-20', milk: '2028-02-29' });
+  await t.close();
+});
+
+test('older clients without the expiry fields still work and get safe defaults', async () => {
+  const t = await boot();
+  const a = await signup(t);
+  const { pantryExpiry, expiryWarnDays, ...legacy } = GOOD_DATA; // what an old app version sends
+  assert.equal((await t.call('PUT', '/api/data', { cookie: a.cookie, body: { data: legacy } })).status, 200);
+  const stored = (await t.call('GET', '/api/data', { cookie: a.cookie })).json.data;
+  assert.deepEqual(stored.pantryExpiry, {});
+  assert.equal(stored.expiryWarnDays, 3);
+  await t.close();
 });

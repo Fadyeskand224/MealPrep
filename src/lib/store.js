@@ -4,6 +4,8 @@ export const defaultData = () => ({
   eaten: {},       // { "dayIndex:slot": true }
   pantry: [],      // ["eggs", "rice", ...]
   dislikes: [],    // recipe ids the user swapped away from
+  pantryExpiry: {},   // { itemName: 'YYYY-MM-DD' } optional expiration dates
+  expiryWarnDays: 3,  // start warning this many days before an item expires
   groceryChecked: {}, // { ingredientName: true } items ticked off while shopping
   favorites: [],   // recipe ids the user hearted (favoured when generating a week)
   target: 1500,    // daily calories (3 meals/day; see README for the snacks/portion TODO)

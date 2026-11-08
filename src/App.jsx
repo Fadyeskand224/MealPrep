@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Plan from './components/Plan';
@@ -18,6 +18,7 @@ import { changePassword, deleteAccount, fetchCurrentUser, logOut } from './lib/a
 import { setUnauthorizedHandler } from './lib/api';
 import { loadServerData, removeLegacyAccounts, saveServerData, writeCache } from './lib/sync';
 import { todayIndex, fmtFull, planDate } from './lib/store';
+import { expiringItems, usablePantry } from './lib/expiry';
 import { generateWeek } from './lib/planner';
 import { RECIPES, RECIPE_BY_ID } from './data/recipes';
 
@@ -110,6 +111,19 @@ function Main({ user, initial, onLogout, onDeleted }) {
   const [swap, setSwap] = useState(null);     // { day, slot }
   const [adding, setAdding] = useState(null);  // recipe id being added to the plan
   const [grocery, setGrocery] = useState(false);
+
+  // "Today" can change while the app stays open (overnight, or resumed from the background).
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    document.addEventListener('visibilitychange', tick);
+    window.addEventListener('focus', tick);
+    const t = setInterval(tick, 30 * 60e3);
+    return () => { document.removeEventListener('visibilitychange', tick); window.removeEventListener('focus', tick); clearInterval(t); };
+  }, []);
+  const expiring = useMemo(() => expiringItems(data.pantry, data.pantryExpiry, data.expiryWarnDays, now), [data.pantry, data.pantryExpiry, data.expiryWarnDays, now]);
+  // Expired food is never offered in recipe ideas, "You have this" badges, or the grocery list.
+  const usable = useMemo(() => usablePantry(data.pantry, data.pantryExpiry, now), [data.pantry, data.pantryExpiry, now]);
 
 
   // Save to the server shortly after every change; retry if the network is down.
@@ -210,8 +224,24 @@ function Main({ user, initial, onLogout, onDeleted }) {
       return { ...d, eaten };
     });
 
-  const addPantry = (item) => !data.pantry.includes(item) && update({ pantry: [...data.pantry, item] });
-  const removePantry = (item) => update({ pantry: data.pantry.filter((p) => p !== item) });
+  const addPantry = (item, date) =>
+    setData((d) => ({
+      ...d,
+      pantry: d.pantry.includes(item) ? d.pantry : [...d.pantry, item],
+      pantryExpiry: date ? { ...d.pantryExpiry, [item]: date } : d.pantryExpiry,
+    }));
+  const removePantry = (item) =>
+    setData((d) => {
+      const pantryExpiry = { ...d.pantryExpiry };
+      delete pantryExpiry[item];
+      return { ...d, pantry: d.pantry.filter((p) => p !== item), pantryExpiry };
+    });
+  const setExpiry = (item, date) =>
+    setData((d) => {
+      const pantryExpiry = { ...d.pantryExpiry };
+      if (date) pantryExpiry[item] = date; else delete pantryExpiry[item];
+      return { ...d, pantryExpiry };
+    });
 
   const openRecipe = (id, d, slot) => setRecipe({ id, day: d, slot });
   const openSwap = (d, slot) => setSwap({ day: d, slot });
@@ -228,6 +258,7 @@ function Main({ user, initial, onLogout, onDeleted }) {
           <Dashboard
             user={user} data={data} day={day} setDay={setDay}
             onGenerate={generate} onOpen={openRecipe} onSwap={openSwap} onToggleEaten={toggleEaten}
+            expiring={expiring} onGoPantry={() => setTab('pantry')}
           />
         )}
         {tab === 'week' && (
@@ -240,7 +271,11 @@ function Main({ user, initial, onLogout, onDeleted }) {
           <Recipes favorites={data.favorites} onFavorite={toggleFavorite} onOpen={(id) => openRecipe(id)} />
         )}
         {tab === 'pantry' && (
-          <Pantry pantry={data.pantry} onAdd={addPantry} onRemove={removePantry} onOpen={(id) => openRecipe(id)} />
+          <Pantry
+            pantry={data.pantry} expiry={data.pantryExpiry} warnDays={data.expiryWarnDays} usable={usable}
+            onAdd={addPantry} onRemove={removePantry} onSetExpiry={setExpiry}
+            onWarnDays={(n) => update({ expiryWarnDays: n })} onOpen={(id) => openRecipe(id)}
+          />
         )}
         {tab === 'me' && (
           <Profile
@@ -257,7 +292,12 @@ function Main({ user, initial, onLogout, onDeleted }) {
         <span className="tab-indicator" aria-hidden="true" />
         {TABS.map(([k, icon, label]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)} aria-current={tab === k}>
-            <Icon name={icon} size={22} />
+            <span className="tab-ico">
+              <Icon name={icon} size={22} />
+              {k === 'pantry' && expiring.length > 0 && (
+                <i className="tab-dot" aria-label={`${expiring.length} pantry items need attention`}>{expiring.length}</i>
+              )}
+            </span>
             {label}
           </button>
         ))}
@@ -266,7 +306,7 @@ function Main({ user, initial, onLogout, onDeleted }) {
       {recipe && (
         <RecipeSheet
           recipe={RECIPE_BY_ID[recipe.id]}
-          pantry={data.pantry}
+          pantry={usable}
           favorite={data.favorites.includes(recipe.id)}
           onFavorite={toggleFavorite}
           onClose={() => setRecipe(null)}
@@ -276,7 +316,7 @@ function Main({ user, initial, onLogout, onDeleted }) {
       )}
       {grocery && data.plan && (
         <GrocerySheet
-          plan={data.plan} pantry={data.pantry} checked={data.groceryChecked}
+          plan={data.plan} pantry={usable} checked={data.groceryChecked}
           onToggle={toggleGrocery} onClearChecked={() => update({ groceryChecked: {} })}
           onClose={() => setGrocery(false)}
         />
