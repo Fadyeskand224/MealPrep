@@ -37,7 +37,20 @@ const SCHEMA = [
  */
 export async function openDb({ url, authToken } = {}) {
   const client = createClient({ url, authToken });
-  await client.batch(SCHEMA, 'write');
+
+  // Step by step, with clear errors, so a bad URL/token is easy to tell apart from a schema problem.
+  try {
+    await client.execute('SELECT 1');
+  } catch (e) {
+    throw new Error(`Database connection check failed (${e.code || 'error'}: ${e.message}). Check TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.`);
+  }
+  for (const [i, stmt] of SCHEMA.entries()) {
+    try {
+      await client.execute(stmt);
+    } catch (e) {
+      throw new Error(`Database setup failed on schema statement ${i + 1}/${SCHEMA.length} (${e.code || 'error'}: ${e.message}).`);
+    }
+  }
 
   const rowsOf = (r) => r.rows.map((row) => Object.fromEntries(r.columns.map((c) => [c, row[c]])));
   return {

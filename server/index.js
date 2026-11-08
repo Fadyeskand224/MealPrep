@@ -12,7 +12,10 @@ const host = process.env.HOST || (prod ? '0.0.0.0' : '127.0.0.1');
 // Database: a hosted Turso database in production, or a local SQLite file for development.
 let dbConfig;
 if (process.env.TURSO_DATABASE_URL) {
-  dbConfig = { url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN };
+  dbConfig = { url: process.env.TURSO_DATABASE_URL.trim(), authToken: (process.env.TURSO_AUTH_TOKEN || '').trim() };
+  // Safe diagnostics: shape only, never the token itself.
+  const u = (() => { try { return new URL(dbConfig.url.replace(/^libsql:/, 'https:')); } catch { return null; } })();
+  console.log(`Database: scheme=${dbConfig.url.split(':')[0]} host=${u ? u.host : 'INVALID URL'} path=${u ? JSON.stringify(u.pathname) : '-'} token=${dbConfig.authToken ? `${dbConfig.authToken.length} chars${dbConfig.authToken.split('.').length === 3 ? ', JWT-shaped' : ', NOT JWT-shaped'}` : 'MISSING'}`);
 } else {
   // A local file only survives if the disk does. Hosts like Render wipe it on every restart,
   // so refuse to run in production with it unless a persistent DATA_DIR was set on purpose.
@@ -24,7 +27,13 @@ if (process.env.TURSO_DATABASE_URL) {
   fs.mkdirSync(dataDir, { recursive: true });
   dbConfig = { url: `file:${path.join(dataDir, 'emsmeals.db')}` };
 }
-const db = await openDb(dbConfig);
+let db;
+try {
+  db = await openDb(dbConfig);
+} catch (e) {
+  console.error(`Startup failed: ${e.message}`);
+  process.exit(1);
+}
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
 if (!prod) allowedOrigins.push('http://localhost:5173', 'http://127.0.0.1:5173');
