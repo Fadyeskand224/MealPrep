@@ -381,3 +381,24 @@ main { padding-bottom: calc(var(--tab-h) + var(--safe-bottom) + 40px); }
 .form-ok { background: var(--olive-soft); color: var(--olive); padding: 11px 14px; border-radius: 14px; font-size: 14px; font-weight: 650; }
 .btn-danger { background: #d9381e; color: #fff; box-shadow: 0 10px 22px -8px rgba(217, 56, 30, 0.6); }
 .login-card label input { flex: none; width: 100%; }
+
+/* ───────── Legal pages & consent ───────── */
+.legal { max-width: 720px; margin: 0 auto; padding: calc(var(--safe-top) + 24px) 20px calc(var(--safe-bottom) + 48px); background: var(--cream); min-height: 100vh; line-height: 1.6; }
+.legal header { margin-bottom: 18px; }
+.legal h1 { margin: 12px 0 4px; }
+.legal h2 { font-size: 19px; margin: 28px 0 8px; }
+.legal p, .legal li { color: #2f4637; }
+.legal ul { padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.legal-back { font-weight: 650; text-decoration: none; }
+.legal footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; }
+.credit-list { list-style: none; padding: 0 !important; }
+.credit-list li { display: flex; flex-direction: column; font-size: 14px; word-break: break-word; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.consent { flex-direction: row !important; align-items: flex-start; gap: 12px !important; font-weight: 450 !important; font-size: 14px !important; line-height: 1.45; }
+.consent input { width: 22px; height: 22px; flex: none !important; margin-top: 1px; accent-color: var(--accent); }
+.login-card .consent input { width: 22px; }
+.login-legal { text-align: center; font-size: 13px; color: var(--muted); }
+.fine, .fine-print { font-size: 12.5px; }
+.fine-print { margin-top: -8px; }
+.row-link { display: flex; align-items: center; justify-content: space-between; min-height: 48px; border-top: 1px solid var(--line); text-decoration: none; color: var(--cocoa); font-weight: 650; }
+.row-link span { color: var(--muted); font-size: 22px; }
+.legal-links .btn { margin-bottom: 8px; }

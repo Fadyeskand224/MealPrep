@@ -5,7 +5,7 @@ services:
     name: emsmeals
     runtime: node
     plan: free
-    buildCommand: npm ci --include=dev && npm run build   # build tools are devDependencies, and NODE_ENV=production would skip them
+    buildCommand: npm ci --include=dev && npm run check:legal && npm run build   # build tools are devDependencies, and NODE_ENV=production would skip them
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true

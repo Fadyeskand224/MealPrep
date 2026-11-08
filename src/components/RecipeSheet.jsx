@@ -56,6 +56,10 @@ export default function RecipeSheet({ recipe, pantry, favorite, onFavorite, onCl
           ))}
         </ol>
 
+        <p className="muted fine">
+          Nutrition values are estimates for one serving, not medical advice. If you have allergies or dietary needs, check ingredient labels.
+        </p>
+
         {onAdd && (
           <button className="btn btn-primary btn-block" onClick={onAdd}>
             <Icon name="plus" size={18} /> Add to my week

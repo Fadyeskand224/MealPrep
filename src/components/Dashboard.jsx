@@ -148,6 +148,7 @@ export default function Dashboard({
         })}
       </div>
       <p className="hint">Swipe to flip through breakfast, lunch and dinner</p>
+      <p className="hint fine-print">Nutrition figures are estimates and not medical advice.</p>
     </div>
   );
 }

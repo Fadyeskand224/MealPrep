@@ -1,7 +1,26 @@
 import { useState } from 'react';
 import { RECIPE_BY_ID } from '../data/recipes';
-import credits from '../data/photoCredits.json';
 import { goalsFor } from '../lib/planner';
+import { downloadMyData } from '../lib/auth';
+
+function DownloadData() {
+  const [state, setState] = useState('');
+  const run = async () => {
+    setState('Preparing…');
+    try {
+      await downloadMyData();
+      setState('Downloaded.');
+    } catch (e) {
+      setState(e.message);
+    }
+  };
+  return (
+    <div>
+      <button className="btn btn-ghost btn-block" onClick={run}>Download my data</button>
+      {state && <p className="muted fine" role="status">{state}</p>}
+    </div>
+  );
+}
 
 function Security({ onChangePassword, onDeleteAccount }) {
   const [pw, setPw] = useState({ current: '', next: '' });
@@ -74,7 +93,7 @@ export default function Profile({ user, data, onTarget, onRestore, onLogout, onC
     <div className="screen">
       <header className="top">
         <div>
-          <div className="eyebrow">{user.id}</div>
+          <div className="eyebrow">{user.email}</div>
           <h1>Hi, {user.name.split(' ')[0]}</h1>
         </div>
       </header>
@@ -107,21 +126,13 @@ export default function Profile({ user, data, onTarget, onRestore, onLogout, onC
 
       <Security onChangePassword={onChangePassword} onDeleteAccount={onDeleteAccount} />
 
-      <section className="card">
-        <details className="credits">
-          <summary><h2>Photo credits</h2></summary>
-          <p className="muted">Food photos are from Wikimedia Commons under free licenses.</p>
-          <ul>
-            {Object.entries(credits).map(([id, c]) => (
-              <li key={id}>
-                <b>{RECIPE_BY_ID[id]?.name}</b>
-                <small>
-                  <a href={c.url} target="_blank" rel="noreferrer">{c.title}</a> · {c.author} · {c.license}
-                </small>
-              </li>
-            ))}
-          </ul>
-        </details>
+      <section className="card legal-links">
+        <h2>Your data &amp; legal</h2>
+        <DownloadData />
+        <a className="row-link" href="/privacy">Privacy Policy <span>›</span></a>
+        <a className="row-link" href="/terms">Terms of Service <span>›</span></a>
+        <a className="row-link" href="/credits">Photo credits <span>›</span></a>
+        <p className="muted fine">Nutrition figures are estimates, not medical advice. Check labels if you have allergies.</p>
       </section>
 
       <button className="btn btn-ghost btn-block" onClick={onLogout}>Log out</button>

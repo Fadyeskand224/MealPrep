@@ -9,6 +9,9 @@ import SwapSheet from './components/SwapSheet';
 import AddToPlanSheet from './components/AddToPlanSheet';
 import Recipes from './components/Recipes';
 import GrocerySheet from './components/GrocerySheet';
+import Privacy from './legal/Privacy';
+import Terms from './legal/Terms';
+import Credits from './legal/Credits';
 import { preloadAll } from './lib/imageCache';
 import { Icon } from './components/ui';
 import { changePassword, deleteAccount, fetchCurrentUser, logOut } from './lib/auth';
@@ -42,7 +45,15 @@ function Splash({ message, onRetry }) {
   );
 }
 
+const PUBLIC_PAGES = { '/privacy': Privacy, '/terms': Terms, '/credits': Credits };
+
 export default function App() {
+  const Public = PUBLIC_PAGES[window.location.pathname.replace(/\/+$/, '')];
+  if (Public) return <Public />; // legal pages are readable without an account
+  return <AppShell />;
+}
+
+function AppShell() {
   const [user, setUser] = useState(undefined); // undefined = still checking the session
   const [bootError, setBootError] = useState('');
 

@@ -46,7 +46,7 @@ async function boot({ prod = false, limits = { auth: 1000, signup: 1000, general
 }
 
 const USER = { name: 'Ada Lovelace', email: 'ada@example.com', password: 'correct-horse-battery' };
-const signup = (t, u = USER) => t.call('POST', '/api/auth/signup', { body: u });
+const signup = (t, u = USER) => t.call('POST', '/api/auth/signup', { body: { acceptTerms: true, ...u } });
 const login = (t, email = USER.email, password = USER.password) => t.call('POST', '/api/auth/login', { body: { email, password } });
 
 const GOOD_DATA = {
@@ -196,7 +196,7 @@ test('CSRF: cross-origin and origin-less state-changing requests are refused', a
 
 test('input validation and password policy', async () => {
   const t = await boot();
-  const bad = async (body) => (await t.call('POST', '/api/auth/signup', { body })).status;
+  const bad = async (body) => (await t.call('POST', '/api/auth/signup', { body: { acceptTerms: true, ...body } })).status;
   assert.equal(await bad({ name: '', email: 'x@example.com', password: 'long-enough-pw' }), 400);
   assert.equal(await bad({ name: 'X', email: 'not-an-email', password: 'long-enough-pw' }), 400);
   assert.equal(await bad({ name: 'X', email: 'x@example.com', password: 'short' }), 400);
@@ -345,4 +345,56 @@ test('lockout expires after the lock period', async () => {
   await t.db.run('UPDATE attempts SET locked_until = ?', [Date.now() - 1000]); // time passes
   assert.equal((await login(t, USER.email, USER.password)).status, 200);
   await t.close();
+});
+
+test('signup requires explicit acceptance of the Terms and records the consent', async () => {
+  const t = await boot();
+  for (const acceptTerms of [undefined, false, 'true', 1, null]) {
+    const r = await t.call('POST', '/api/auth/signup', { body: { ...USER, acceptTerms } });
+    assert.equal(r.status, 400, `acceptTerms=${String(acceptTerms)} must be refused`);
+  }
+  assert.equal((await t.db.get('SELECT COUNT(*) c FROM users')).c, 0, 'no account without consent');
+
+  const before = Date.now();
+  assert.equal((await signup(t)).status, 201);
+  const u = await t.db.get('SELECT terms_accepted_at, terms_version FROM users');
+  assert.ok(u.terms_accepted_at >= before && u.terms_accepted_at <= Date.now());
+  assert.match(u.terms_version, /^\d{4}-\d{2}-\d{2}$/);
+  await t.close();
+});
+
+test('data export: login required, only your own data, never the password hash', async () => {
+  const t = await boot();
+  const a = await signup(t);
+  const b = await signup(t, { name: 'Bob Builder', email: 'bob@example.com', password: 'another-strong-pw' });
+  await t.call('PUT', '/api/data', { cookie: a.cookie, body: { data: GOOD_DATA } });
+
+  assert.equal((await t.call('GET', '/api/auth/export')).status, 401);
+
+  const mine = await t.call('GET', '/api/auth/export', { cookie: a.cookie });
+  assert.equal(mine.status, 200);
+  assert.match(mine.headers['content-disposition'], /attachment/);
+  assert.equal(mine.json.account.email, USER.email);
+  assert.deepEqual(mine.json.data, GOOD_DATA);
+  assert.ok(mine.json.account.acceptedTermsAt);
+  assert.ok(!/scrypt|password_hash|\$/.test(JSON.stringify(mine.json)), 'no password material in the export');
+
+  const bobs = await t.call('GET', '/api/auth/export', { cookie: b.cookie });
+  assert.equal(bobs.json.account.email, 'bob@example.com');
+  assert.equal(bobs.json.data, null, "Bob never receives Ada's data");
+  await t.close();
+});
+
+test('existing databases are upgraded in place with the consent columns', async () => {
+  const { createClient } = await import('@libsql/client');
+  const file = `file:${process.env.TMPDIR || '/tmp'}/emsmeals-migrate-${process.pid}.db`;
+  const old = createClient({ url: file });
+  await old.execute('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, password_hash TEXT NOT NULL, created_at INTEGER NOT NULL)');
+  await old.execute("INSERT INTO users (email, name, password_hash, created_at) VALUES ('old@example.com', 'Old', 'x', 1)");
+  old.close();
+  const db = await openDb({ url: file });
+  const cols = (await db.all('PRAGMA table_info(users)')).map((c) => c.name);
+  assert.ok(cols.includes('terms_accepted_at') && cols.includes('terms_version'));
+  assert.equal((await db.get('SELECT COUNT(*) c FROM users')).c, 1, 'existing rows survive');
+  db.close();
 });

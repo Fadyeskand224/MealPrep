@@ -22,15 +22,20 @@ export default function Login({ onAuthed }) {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [accepted, setAccepted] = useState(false);
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    if (mode === 'signup' && !accepted) {
+      setError('Please confirm you are 13 or older and accept the Terms and Privacy Policy.');
+      return;
+    }
     setBusy(true);
     try {
-      const user = mode === 'login' ? await logIn(form) : await signUp(form);
+      const user = mode === 'login' ? await logIn(form) : await signUp({ ...form, acceptTerms: accepted });
       onAuthed(user);
     } catch (err) {
       setError(err.message);
@@ -93,11 +98,25 @@ export default function Login({ onAuthed }) {
           />
         </label>
 
+        {mode === 'signup' && (
+          <label className="consent">
+            <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
+            <span>
+              I am at least 13 years old and I agree to the <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and{' '}
+              <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+            </span>
+          </label>
+        )}
+
         {error && <div className="form-error" role="alert">{error}</div>}
 
         <button className="btn btn-primary btn-block" disabled={busy}>
           {busy ? 'One moment…' : mode === 'login' ? 'Log in' : 'Create account'}
         </button>
+
+        <p className="login-legal">
+          <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/credits">Photo credits</a>
+        </p>
       </form>
     </div>
   );

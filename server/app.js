@@ -7,6 +7,7 @@ import { hashPassword, verifyPassword, dummyVerify, passwordProblem } from './pa
 import { createSessionStore, SESSION_DAYS } from './sessions.js';
 import { createAttemptTracker } from './attempts.js';
 import { validateEmail, validateName, validateUserData } from './validate.js';
+import { LEGAL } from '../src/legal/config.js';
 
 const GENERIC_LOGIN_ERROR = 'Incorrect email or password.';
 const LOCKED_ERROR = 'Too many attempts. Please wait a few minutes and try again.';
@@ -103,7 +104,8 @@ export function createApp({ db, prod = false, distDir = null, allowedOrigins = [
 
   // ───────── Auth ─────────
   api.post('/auth/signup', signupLimiter, h(async (req, res) => {
-    const { name, email, password } = req.body || {};
+    const { name, email, password, acceptTerms } = req.body || {};
+    if (acceptTerms !== true) return res.status(400).json({ error: 'Please accept the Terms of Service and Privacy Policy to create an account.' });
     if (!validateName(name)) return res.status(400).json({ error: 'Please enter your name.' });
     if (!validateEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
     const id = normEmail(email);
@@ -114,8 +116,8 @@ export function createApp({ db, prod = false, distDir = null, allowedOrigins = [
     }
     try {
       const info = await db.run(
-        'INSERT INTO users (email, name, password_hash, created_at) VALUES (?, ?, ?, ?)',
-        [id, name.trim(), await hashPassword(password), Date.now()]
+        'INSERT INTO users (email, name, password_hash, created_at, terms_accepted_at, terms_version) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, name.trim(), await hashPassword(password), Date.now(), Date.now(), LEGAL.termsVersion]
       );
       await setSession(res, info.lastInsertRowid);
       return res.status(201).json({ user: { id: info.lastInsertRowid, name: name.trim(), email: id } });
@@ -152,6 +154,29 @@ export function createApp({ db, prod = false, distDir = null, allowedOrigins = [
   }));
 
   api.get('/auth/me', requireAuth, (req, res) => res.json({ user: publicUser(req.user) }));
+
+  // Data portability: everything we hold about you, as a download. Never includes the password hash.
+  api.get('/auth/export', requireAuth, h(async (req, res) => {
+    const account = await db.get(
+      'SELECT id, name, email, created_at, terms_accepted_at, terms_version FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    const row = await db.get('SELECT json, updated_at FROM user_data WHERE user_id = ?', [req.user.id]);
+    res.set('Content-Disposition', 'attachment; filename="emsmeals-my-data.json"');
+    res.json({
+      exportedAt: new Date().toISOString(),
+      account: {
+        id: account.id,
+        name: account.name,
+        email: account.email,
+        createdAt: new Date(account.created_at).toISOString(),
+        acceptedTermsAt: account.terms_accepted_at ? new Date(account.terms_accepted_at).toISOString() : null,
+        acceptedTermsVersion: account.terms_version,
+      },
+      data: row ? JSON.parse(row.json) : null,
+      dataUpdatedAt: row ? new Date(row.updated_at).toISOString() : null,
+    });
+  }));
 
   api.post('/auth/password', requireAuth, h(async (req, res) => {
     const { currentPassword, newPassword } = req.body || {};

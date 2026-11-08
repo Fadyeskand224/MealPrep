@@ -6,7 +6,9 @@ const SCHEMA = [
      email         TEXT NOT NULL UNIQUE,
      name          TEXT NOT NULL,
      password_hash TEXT NOT NULL,
-     created_at    INTEGER NOT NULL
+     created_at    INTEGER NOT NULL,
+     terms_accepted_at INTEGER,
+     terms_version     TEXT
    )`,
   // Only a SHA-256 of the session token is stored, never the token itself.
   `CREATE TABLE IF NOT EXISTS sessions (
@@ -53,6 +55,12 @@ export async function openDb({ url, authToken } = {}) {
   }
 
   const rowsOf = (r) => r.rows.map((row) => Object.fromEntries(r.columns.map((c) => [c, row[c]])));
+  // Databases created before consent tracking get the new columns added in place.
+  const cols = (await client.execute('PRAGMA table_info(users)')).rows.map((r) => r.name);
+  for (const [name, type] of [['terms_accepted_at', 'INTEGER'], ['terms_version', 'TEXT']]) {
+    if (!cols.includes(name)) await client.execute(`ALTER TABLE users ADD COLUMN ${name} ${type}`);
+  }
+
   return {
     async get(sql, args = []) {
       return rowsOf(await client.execute({ sql, args }))[0];

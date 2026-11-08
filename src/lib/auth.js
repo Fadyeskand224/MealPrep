@@ -3,8 +3,20 @@
 import { api, ApiError } from './api';
 import { clearLocalData } from './sync';
 
-export const signUp = async ({ name, email, password }) =>
-  (await api('/auth/signup', { method: 'POST', body: { name, email, password } })).user;
+export const signUp = async ({ name, email, password, acceptTerms }) =>
+  (await api('/auth/signup', { method: 'POST', body: { name, email, password, acceptTerms } })).user;
+
+/** Downloads everything we hold about the user as a JSON file. */
+export async function downloadMyData() {
+  const res = await fetch('/api/auth/export', { credentials: 'same-origin' });
+  if (!res.ok) throw new Error('Could not download your data. Please try again.');
+  const url = URL.createObjectURL(await res.blob());
+  const a = Object.assign(document.createElement('a'), { href: url, download: 'emsmeals-my-data.json' });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 export const logIn = async ({ email, password }) =>
   (await api('/auth/login', { method: 'POST', body: { email, password } })).user;
