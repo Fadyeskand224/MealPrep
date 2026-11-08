@@ -1,4 +1,4 @@
-import { r } from './helper';
+import { r } from './helper.js';
 
 // Second batch of recipes. Macros are per serving.
 export const MORE_RECIPES = [

@@ -19,7 +19,7 @@ export default function RecipeSheet({ recipe, pantry, favorite, onFavorite, onCl
           <Icon name="heart" size={20} fill={favorite} />
         </button>
         <div className="hero-text">
-          <div className="eyebrow light">{MEAL_LABEL[recipe.meal]} · {recipe.mins} min · Easy</div>
+          <div className="eyebrow light">{MEAL_LABEL[recipe.meal]} · {recipe.cuisine} · {recipe.mins} min · Easy</div>
           <h2>{recipe.name}</h2>
         </div>
       </div>

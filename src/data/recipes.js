@@ -1,6 +1,9 @@
 
-import { r } from './helper';
-import { MORE_RECIPES } from './moreRecipes';
+import { r } from './helper.js';
+import { MORE_RECIPES } from './moreRecipes.js';
+import { CUISINE_OF } from './cuisines.js';
+
+export { CUISINES } from './cuisines.js';
 
 const BASE_RECIPES = [
   // ───────── Breakfast ─────────
@@ -118,7 +121,7 @@ const BASE_RECIPES = [
     ['Chop everything into bite-size pieces.', 'Toss with olive oil on a sheet pan.', 'Roast at 425°F (220°C) for 25 minutes, turning once.']),
 ];
 
-export const RECIPES = [...BASE_RECIPES, ...MORE_RECIPES];
+export const RECIPES = [...BASE_RECIPES, ...MORE_RECIPES].map((x) => ({ ...x, cuisine: CUISINE_OF[x.id] }));
 
 export const RECIPE_BY_ID = Object.fromEntries(RECIPES.map((x) => [x.id, x]));
 export const MEALS = ['breakfast', 'lunch', 'dinner'];

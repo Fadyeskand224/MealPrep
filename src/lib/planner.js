@@ -1,4 +1,4 @@
-import { RECIPES, RECIPE_BY_ID, MEALS, STAPLES } from '../data/recipes';
+import { RECIPES, RECIPE_BY_ID, MEALS, STAPLES } from '../data/recipes.js';
 
 const shuffle = (arr) => {
   const a = [...arr];

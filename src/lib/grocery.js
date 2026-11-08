@@ -1,5 +1,5 @@
-import { RECIPE_BY_ID, MEALS, STAPLES } from '../data/recipes';
-import { hasIngredient } from './planner';
+import { RECIPE_BY_ID, MEALS, STAPLES } from '../data/recipes.js';
+import { hasIngredient } from './planner.js';
 
 // ───────── Aisles ─────────
 export const AISLES = ['Produce', 'Meat & Seafood', 'Dairy & Eggs', 'Bakery', 'Canned & Sauces', 'Pantry & Dry Goods', 'Frozen & Other'];
@@ -20,6 +20,8 @@ const AISLE_ITEMS = {
 };
 
 const AISLE_OF = Object.fromEntries(Object.entries(AISLE_ITEMS).flatMap(([aisle, names]) => names.map((n) => [n, aisle])));
+/** True when the ingredient has an explicit aisle (used by the data tests). */
+export const hasAisle = (name) => name in AISLE_OF;
 export const aisleOf = (name) => AISLE_OF[name] || 'Frozen & Other';
 
 // ───────── Quantity maths ─────────
