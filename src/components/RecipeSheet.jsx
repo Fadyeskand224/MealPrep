@@ -1,0 +1,59 @@
+import { Sheet, Stat, Tile } from './ui';
+import { analyzeRecipe } from '../lib/planner';
+import { MEAL_LABEL } from '../data/recipes';
+
+export default function RecipeSheet({ recipe, pantry, onClose, onSwap }) {
+  const { ingredients, haveCount, coreCount } = analyzeRecipe(recipe, pantry);
+
+  return (
+    <Sheet title={recipe.name} onClose={onClose}>
+      <div className={`recipe-hero tile-${recipe.meal}`}>
+        <span>{recipe.emoji}</span>
+      </div>
+      <div className="sheet-body">
+        <div className="eyebrow">{MEAL_LABEL[recipe.meal]} · {recipe.mins} min · Easy</div>
+        <h2>{recipe.name}</h2>
+
+        <div className="stats">
+          <Stat k="kcal" v={recipe.kcal} />
+          <Stat k="protein" v={`${recipe.protein}g`} />
+          <Stat k="carbs" v={`${recipe.carbs}g`} />
+          <Stat k="fat" v={`${recipe.fat}g`} />
+        </div>
+
+        <h3>
+          Ingredients{' '}
+          {pantry.length > 0 && (
+            <small className="muted">
+              you have {haveCount} of {coreCount}
+            </small>
+          )}
+        </h3>
+        <ul className="ings">
+          {ingredients.map((i) => (
+            <li key={i.name} className={i.have ? 'have' : ''}>
+              <span className="ing-qty">{i.qty}</span>
+              <span className="ing-name">{i.name}</span>
+              {i.have && <span className="badge badge-have">✓ You have this</span>}
+            </li>
+          ))}
+        </ul>
+
+        <h3>Method</h3>
+        <ol className="steps">
+          {recipe.steps.map((s, idx) => (
+            <li key={idx}>{s}</li>
+          ))}
+        </ol>
+
+        {onSwap && (
+          <button className="btn btn-ghost btn-block" onClick={onSwap}>
+            ↻ Replace this meal
+          </button>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
+export { Tile };
