@@ -1,4 +1,4 @@
-import { Tile } from './ui';
+import { Icon, Tile } from './ui';
 import { RECIPE_BY_ID, MEALS, MEAL_LABEL } from '../data/recipes';
 import { dayTotals } from '../lib/planner';
 import { fmtFull, planDate } from '../lib/store';
@@ -14,13 +14,12 @@ export default function Plan({ data, onGenerate, onOpen, onSwap, onJumpDay }) {
           <h1>This week</h1>
         </div>
         <button className="btn btn-primary btn-sm" onClick={onGenerate}>
-          {plan ? '✨ New week' : '✨ Generate'}
+          <Icon name="sparkle" size={16} /> {plan ? 'New week' : 'Generate'}
         </button>
       </header>
 
       {!plan ? (
         <div className="empty">
-          <div className="empty-emoji">📅</div>
           <h2>No plan yet</h2>
           <p>Tap generate for a full week of easy meals. You can swap out anything you don’t fancy.</p>
         </div>
@@ -45,7 +44,7 @@ export default function Plan({ data, onGenerate, onOpen, onSwap, onJumpDay }) {
                         <small>{rec.mins} min · {rec.kcal} kcal</small>
                       </div>
                     </button>
-                    <button className="icon-btn swap" onClick={() => onSwap(i, slot)} aria-label={`Replace ${rec.name}`}>↻</button>
+                    <button className="icon-btn swap" onClick={() => onSwap(i, slot)} aria-label={`Replace ${rec.name}`}><Icon name="swap" size={20} /></button>
                   </div>
                 );
               })}

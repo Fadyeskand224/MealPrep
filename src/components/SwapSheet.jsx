@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Sheet, Tile } from './ui';
+import { Icon, Sheet, Tile } from './ui';
 import { RECIPE_BY_ID, MEAL_LABEL } from '../data/recipes';
 import { swapOptions } from '../lib/planner';
 
@@ -25,7 +25,7 @@ export default function SwapSheet({ plan, dislikes, day, slot, dayLabel, onPick,
               className="btn btn-primary btn-block"
               onClick={() => onPick(options[0].id, never)}
             >
-              🎲 Surprise me
+              <Icon name="dice" size={18} /> Surprise me
             </button>
 
             <label className="check">

@@ -6,16 +6,17 @@ import Pantry from './components/Pantry';
 import Profile from './components/Profile';
 import RecipeSheet from './components/RecipeSheet';
 import SwapSheet from './components/SwapSheet';
+import { Icon } from './components/ui';
 import { currentUser, logOut } from './lib/auth';
 import { loadData, saveData, todayIndex, fmtFull, planDate } from './lib/store';
 import { generateWeek } from './lib/planner';
 import { RECIPE_BY_ID } from './data/recipes';
 
 const TABS = [
-  ['today', '📊', 'Today'],
-  ['week', '📅', 'Week'],
-  ['pantry', '🥕', 'Pantry'],
-  ['me', '👤', 'Profile'],
+  ['today', 'today', 'Today'],
+  ['week', 'week', 'Week'],
+  ['pantry', 'pantry', 'Pantry'],
+  ['me', 'me', 'Profile'],
 ];
 
 export default function App() {
@@ -96,10 +97,11 @@ function Main({ user, onLogout }) {
         )}
       </main>
 
-      <nav className="tabbar">
+      <nav className="tabbar" style={{ '--i': TABS.findIndex(([k]) => k === tab) }}>
+        <span className="tab-indicator" aria-hidden="true" />
         {TABS.map(([k, icon, label]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)} aria-current={tab === k}>
-            <span>{icon}</span>
+            <Icon name={icon} size={22} />
             {label}
           </button>
         ))}

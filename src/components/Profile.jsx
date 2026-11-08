@@ -1,4 +1,5 @@
 import { RECIPE_BY_ID } from '../data/recipes';
+import credits from '../data/photoCredits.json';
 import { goalsFor } from '../lib/planner';
 
 export default function Profile({ user, data, onTarget, onRestore, onLogout }) {
@@ -37,6 +38,23 @@ export default function Profile({ user, data, onTarget, onRestore, onLogout }) {
             </div>
           ))
         )}
+      </section>
+
+      <section className="card">
+        <details className="credits">
+          <summary><h2>Photo credits</h2></summary>
+          <p className="muted">Food photos are from Wikimedia Commons under free licenses.</p>
+          <ul>
+            {Object.entries(credits).map(([id, c]) => (
+              <li key={id}>
+                <b>{RECIPE_BY_ID[id]?.name}</b>
+                <small>
+                  <a href={c.url} target="_blank" rel="noreferrer">{c.title}</a> · {c.author} · {c.license}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </details>
       </section>
 
       <button className="btn btn-ghost btn-block" onClick={onLogout}>Log out</button>

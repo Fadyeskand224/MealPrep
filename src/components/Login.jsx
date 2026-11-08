@@ -1,6 +1,22 @@
 import { useState } from 'react';
 import { logIn, signUp } from '../lib/auth';
 
+const ROW_A = ['d-baked-salmon', 'b-banana-pancakes', 'l-tomato-soup-grilled-cheese', 'd-beef-tacos', 'b-avocado-egg-toast', 'd-turkey-chili'];
+const ROW_B = ['l-greek-chickpea-salad', 'd-turkey-meatballs', 'b-overnight-oats', 'l-egg-fried-rice', 'd-chicken-fajitas', 'l-bean-quesadilla'];
+
+function Marquee({ ids, reverse }) {
+  const list = [...ids, ...ids];
+  return (
+    <div className={`marquee ${reverse ? 'rev' : ''}`} aria-hidden="true">
+      <div className="marquee-track">
+        {list.map((id, i) => (
+          <img key={i} src={`/food/${id}.jpg`} alt="" loading="eager" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Login({ onAuthed }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
@@ -26,9 +42,15 @@ export default function Login({ onAuthed }) {
   return (
     <div className="login">
       <div className="login-hero">
-        <div className="login-logo">🍲</div>
-        <h1>MealPrep</h1>
-        <p>A week of easy, delicious meals, planned in one tap.</p>
+        <div className="marquees">
+          <Marquee ids={ROW_A} />
+          <Marquee ids={ROW_B} reverse />
+        </div>
+        <div className="login-fade" />
+        <div className="login-title">
+          <h1>MealPrep</h1>
+          <p>A week of easy, delicious meals — planned in one tap.</p>
+        </div>
       </div>
 
       <form className="login-card" onSubmit={submit}>

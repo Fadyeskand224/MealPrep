@@ -1,4 +1,4 @@
-import { Sheet, Stat, Tile } from './ui';
+import { Icon, Sheet, Stat, Tile } from './ui';
 import { analyzeRecipe } from '../lib/planner';
 import { MEAL_LABEL } from '../data/recipes';
 
@@ -7,13 +7,15 @@ export default function RecipeSheet({ recipe, pantry, onClose, onSwap }) {
 
   return (
     <Sheet title={recipe.name} onClose={onClose}>
-      <div className={`recipe-hero tile-${recipe.meal}`}>
-        <span>{recipe.emoji}</span>
+      <div className="recipe-hero">
+        <Tile recipe={recipe} size="fill" zoom />
+        <span className="meal-shade" />
+        <div className="hero-text">
+          <div className="eyebrow light">{MEAL_LABEL[recipe.meal]} · {recipe.mins} min · Easy</div>
+          <h2>{recipe.name}</h2>
+        </div>
       </div>
       <div className="sheet-body">
-        <div className="eyebrow">{MEAL_LABEL[recipe.meal]} · {recipe.mins} min · Easy</div>
-        <h2>{recipe.name}</h2>
-
         <div className="stats">
           <Stat k="kcal" v={recipe.kcal} />
           <Stat k="protein" v={`${recipe.protein}g`} />
@@ -48,12 +50,10 @@ export default function RecipeSheet({ recipe, pantry, onClose, onSwap }) {
 
         {onSwap && (
           <button className="btn btn-ghost btn-block" onClick={onSwap}>
-            ↻ Replace this meal
+            <Icon name="swap" size={18} /> Replace this meal
           </button>
         )}
       </div>
     </Sheet>
   );
 }
-
-export { Tile };

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Tile } from './ui';
+import { Icon, Tile } from './ui';
 import { ALL_INGREDIENTS, STAPLES } from '../data/recipes';
 import { recommend } from '../lib/planner';
 
@@ -78,7 +78,7 @@ export default function Pantry({ pantry, onAdd, onRemove, onOpen }) {
           {results.map(({ recipe, ingredients, haveCount, coreCount, missing }) => (
             <button key={recipe.id} className="card idea" onClick={() => onOpen(recipe.id)}>
               <div className="idea-top">
-                <Tile recipe={recipe} size="sm" />
+                <Tile recipe={recipe} size="md" />
                 <div className="row-main">
                   <b>{recipe.name}</b>
                   <small>{recipe.mins} min · {recipe.kcal} kcal · {recipe.protein}g protein</small>
