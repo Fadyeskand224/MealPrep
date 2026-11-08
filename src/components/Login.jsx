@@ -48,7 +48,7 @@ export default function Login({ onAuthed }) {
         </div>
         <div className="login-fade" />
         <div className="login-title">
-          <h1>MealPrep</h1>
+          <h1>EmsMeals</h1>
           <p>A week of easy, delicious meals — planned in one tap.</p>
         </div>
       </div>

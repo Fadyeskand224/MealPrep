@@ -1,24 +1,13 @@
-// Per-user app data, persisted in localStorage.
+// Shape of a user's app data. It is stored on the server (see lib/sync.js).
 export const defaultData = () => ({
   plan: null,      // { createdAt, days: [{breakfast, lunch, dinner}] x7 }
   eaten: {},       // { "dayIndex:slot": true }
   pantry: [],      // ["eggs", "rice", ...]
   dislikes: [],    // recipe ids the user swapped away from
+  groceryChecked: {}, // { ingredientName: true } items ticked off while shopping
+  favorites: [],   // recipe ids the user hearted (favoured when generating a week)
   target: 1500,    // daily calories (3 meals/day; see README for the snacks/portion TODO)
 });
-
-const key = (userId) => `mp:data:${userId}`;
-
-export function loadData(userId) {
-  try {
-    const raw = localStorage.getItem(key(userId));
-    return raw ? { ...defaultData(), ...JSON.parse(raw) } : defaultData();
-  } catch {
-    return defaultData();
-  }
-}
-
-export const saveData = (userId, data) => localStorage.setItem(key(userId), JSON.stringify(data));
 
 // ───────── Dates ─────────
 const DAY_MS = 86400000;

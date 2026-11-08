@@ -1,25 +1,8 @@
-// Recipe library. Macros are per serving (1 serving = 1 meal).
-// r(id, name, emoji, meal, minutes, [kcal, protein, carbs, fat], mainProtein, [ "qty|ingredient" ], [steps])
 
-const r = (id, name, emoji, meal, mins, m, main, ings, steps) => ({
-  id,
-  name,
-  emoji,
-  meal,
-  mins,
-  kcal: m[0],
-  protein: m[1],
-  carbs: m[2],
-  fat: m[3],
-  main,
-  ingredients: ings.map((s) => {
-    const [qty, name] = s.split('|');
-    return { qty, name };
-  }),
-  steps,
-});
+import { r } from './helper';
+import { MORE_RECIPES } from './moreRecipes';
 
-export const RECIPES = [
+const BASE_RECIPES = [
   // ───────── Breakfast ─────────
   r('b-veg-scramble', 'Veggie Scrambled Eggs on Toast', '🍳', 'breakfast', 10, [380, 24, 28, 19], 'egg',
     ['3|eggs', '1 handful|spinach', '2 slices|whole wheat bread', '1 tbsp|butter', 'to taste|salt', 'to taste|black pepper'],
@@ -135,6 +118,8 @@ export const RECIPES = [
     ['Chop everything into bite-size pieces.', 'Toss with olive oil on a sheet pan.', 'Roast at 425°F (220°C) for 25 minutes, turning once.']),
 ];
 
+export const RECIPES = [...BASE_RECIPES, ...MORE_RECIPES];
+
 export const RECIPE_BY_ID = Object.fromEntries(RECIPES.map((x) => [x.id, x]));
 export const MEALS = ['breakfast', 'lunch', 'dinner'];
 export const MEAL_LABEL = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
@@ -146,3 +131,14 @@ export const STAPLES = new Set(['salt', 'black pepper', 'olive oil', 'butter']);
 export const ALL_INGREDIENTS = [
   ...new Set(RECIPES.flatMap((x) => x.ingredients.map((i) => i.name))),
 ].sort();
+
+// ───────── Dietary / quick-filter tags (derived, so every recipe gets them) ─────────
+const MEAT_WORDS = ['chicken', 'beef', 'turkey', 'bacon', 'sausage', 'shrimp', 'salmon', 'tuna', 'cod', 'pork', 'ham', 'steak'];
+const isVegetarian = (x) => !x.ingredients.some((i) => MEAT_WORDS.some((w) => i.name.includes(w)));
+
+export const FILTER_TAGS = [
+  { key: 'vegetarian', label: 'Vegetarian', test: isVegetarian },
+  { key: 'protein', label: 'High protein', test: (x) => x.protein >= 35 },
+  { key: 'quick', label: 'Under 15 min', test: (x) => x.mins <= 15 },
+  { key: 'light', label: 'Light', test: (x) => x.kcal <= 400 },
+];

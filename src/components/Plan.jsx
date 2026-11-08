@@ -3,7 +3,7 @@ import { RECIPE_BY_ID, MEALS, MEAL_LABEL } from '../data/recipes';
 import { dayTotals } from '../lib/planner';
 import { fmtFull, planDate } from '../lib/store';
 
-export default function Plan({ data, onGenerate, onOpen, onSwap, onJumpDay }) {
+export default function Plan({ data, onGenerate, onOpen, onSwap, onJumpDay, onGrocery }) {
   const { plan } = data;
 
   return (
@@ -17,6 +17,17 @@ export default function Plan({ data, onGenerate, onOpen, onSwap, onJumpDay }) {
           <Icon name="sparkle" size={16} /> {plan ? 'New week' : 'Generate'}
         </button>
       </header>
+
+      {plan && (
+        <button className="grocery-cta" onClick={onGrocery}>
+          <span className="grocery-ico"><Icon name="cart" size={22} /></span>
+          <span className="grocery-text">
+            <b>Create grocery list</b>
+            <small>Everything for this week, sorted by aisle</small>
+          </span>
+          <span className="chev">›</span>
+        </button>
+      )}
 
       {!plan ? (
         <div className="empty">

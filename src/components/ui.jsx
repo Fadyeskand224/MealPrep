@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { isLoaded, loadPhoto, photoUrl } from '../lib/imageCache';
 
 export function Sheet({ title, onClose, children }) {
   useEffect(() => {
@@ -101,22 +102,27 @@ export function MacroBar({ label, eaten, planned, goal, color }) {
  * emoji fallback if the file is ever missing. size: sm | md | fill
  */
 export function Tile({ recipe, size = 'md', zoom = false }) {
-  const [state, setState] = useState('loading');
+  const id = recipe.id;
+  const [state, setState] = useState(() => (isLoaded(id) ? 'ready' : 'loading'));
+  const instant = useRef(isLoaded(id)).current; // already cached: show with no fade
+
+  useEffect(() => {
+    let alive = true;
+    if (isLoaded(id)) {
+      setState('ready');
+      return undefined;
+    }
+    setState('loading');
+    loadPhoto(id).then((ok) => alive && setState(ok ? 'ready' : 'error'));
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
   return (
-    <div className={`tile tile-${recipe.meal} tile-${size} ${state}`}>
-      {state === 'error' ? (
-        <span className="tile-emoji">{recipe.emoji}</span>
-      ) : (
-        <img
-          src={`/food/${recipe.id}.jpg`}
-          alt={recipe.name}
-          loading="lazy"
-          decoding="async"
-          className={zoom ? 'zoom' : ''}
-          onLoad={() => setState('ready')}
-          onError={() => setState('error')}
-        />
-      )}
+    <div className={`tile tile-${recipe.meal} tile-${size} ${state} ${instant ? 'instant' : ''}`}>
+      {state === 'ready' && <img src={photoUrl(id)} alt={recipe.name} className={zoom ? 'zoom' : ''} />}
+      {state === 'error' && <span className="tile-emoji">{recipe.emoji}</span>}
     </div>
   );
 }
@@ -141,11 +147,18 @@ const PATHS = {
   sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z',
   clock: 'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z',
   dice: 'M5 5h14v14H5zM9 9h.01M15 9h.01M12 12h.01M9 15h.01M15 15h.01',
+  recipes: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4zM5 17a3 3 0 0 1 3-3h11',
+  heart: 'M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z',
+  search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-5-5',
+  plus: 'M12 5v14M5 12h14',
+  cart: 'M3 4h2l2.4 11h10.2l2-8H6.2M9 20h.01M17 20h.01',
+  share: 'M12 3v12M8 7l4-4 4 4M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6',
+  copy: 'M9 9h10v11H9zM5 15V4h10',
 };
 
-export function Icon({ name, size = 22 }) {
+export function Icon({ name, size = 22, fill = false }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={PATHS[name]} />
     </svg>
   );

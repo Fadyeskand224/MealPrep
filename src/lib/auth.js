@@ -1,53 +1,37 @@
-// Local-only accounts for the prototype. Passwords are salted + hashed with PBKDF2 (WebCrypto)
-// and stored on-device in localStorage. To move to a real backend, replace signUp / logIn /
-// currentUser / logOut with API calls; the UI only depends on these four functions.
+// Accounts live on the server. The browser only holds an HttpOnly session cookie, which
+// JavaScript cannot read, so no password, hash or token is ever stored in the page.
+import { api, ApiError } from './api';
+import { clearLocalData } from './sync';
 
-const USERS_KEY = 'mp:users';
-const SESSION_KEY = 'mp:session';
+export const signUp = async ({ name, email, password }) =>
+  (await api('/auth/signup', { method: 'POST', body: { name, email, password } })).user;
 
-const enc = new TextEncoder();
-const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
-const fromHex = (hex) => new Uint8Array(hex.match(/.{2}/g).map((h) => parseInt(h, 16)));
+export const logIn = async ({ email, password }) =>
+  (await api('/auth/login', { method: 'POST', body: { email, password } })).user;
 
-async function hash(password, saltHex) {
-  const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt: fromHex(saltHex), iterations: 120000, hash: 'SHA-256' },
-    key,
-    256
-  );
-  return toHex(bits);
+/** The logged-in user, or null when there is no valid session. Network errors are thrown. */
+export async function fetchCurrentUser() {
+  try {
+    return (await api('/auth/me')).user;
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) return null;
+    throw e;
+  }
 }
 
-const readUsers = () => JSON.parse(localStorage.getItem(USERS_KEY) || '{}');
-const writeUsers = (u) => localStorage.setItem(USERS_KEY, JSON.stringify(u));
-
-export async function signUp({ name, email, password }) {
-  const id = email.trim().toLowerCase();
-  if (!name.trim()) throw new Error('Please enter your name.');
-  if (!/^\S+@\S+\.\S+$/.test(id)) throw new Error('Enter a valid email address.');
-  if (password.length < 8) throw new Error('Password must be at least 8 characters.');
-  const users = readUsers();
-  if (users[id]) throw new Error('An account with that email already exists.');
-  const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
-  users[id] = { name: name.trim(), salt, hash: await hash(password, salt) };
-  writeUsers(users);
-  localStorage.setItem(SESSION_KEY, id);
-  return { id, name: users[id].name };
+export async function logOut(user) {
+  try {
+    await api('/auth/logout', { method: 'POST' });
+  } catch {
+    /* even if the server is unreachable, wipe what is stored on this device */
+  }
+  clearLocalData(user?.id);
 }
 
-export async function logIn({ email, password }) {
-  const id = email.trim().toLowerCase();
-  const u = readUsers()[id];
-  if (!u || (await hash(password, u.salt)) !== u.hash) throw new Error('Incorrect email or password.');
-  localStorage.setItem(SESSION_KEY, id);
-  return { id, name: u.name };
-}
+export const changePassword = (currentPassword, newPassword) =>
+  api('/auth/password', { method: 'POST', body: { currentPassword, newPassword } });
 
-export function currentUser() {
-  const id = localStorage.getItem(SESSION_KEY);
-  const u = id && readUsers()[id];
-  return u ? { id, name: u.name } : null;
+export async function deleteAccount(user, password) {
+  await api('/auth/account', { method: 'DELETE', body: { password } });
+  clearLocalData(user?.id);
 }
-
-export const logOut = () => localStorage.removeItem(SESSION_KEY);

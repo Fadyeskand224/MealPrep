@@ -39,12 +39,19 @@ export const dayTotals = (day, eaten) =>
  * calories land closest to the target, with no repeated meals and no back-to-back
  * days of the same main protein in the same slot.
  */
-export function generateWeek({ target = 2000, dislikes = [] } = {}) {
+export function generateWeek({ target = 2000, dislikes = [], favorites = [] } = {}) {
   let best = null;
   let bestScore = Infinity;
 
   for (let attempt = 0; attempt < 60; attempt++) {
-    const bags = Object.fromEntries(MEALS.map((m) => [m, shuffle(pool(m, dislikes))]));
+    const bags = Object.fromEntries(
+      MEALS.map((m) => {
+        const bag = shuffle(pool(m, dislikes));
+        // Favourites jump the queue most of the time, so they show up in your week.
+        const favs = bag.filter((x) => favorites.includes(x.id) && Math.random() < 0.75);
+        return [m, [...favs, ...bag.filter((x) => !favs.includes(x))]];
+      })
+    );
     const days = [];
     let ok = true;
 
@@ -104,15 +111,33 @@ const norm = (s) =>
     .toLowerCase()
     .trim()
     .split(/\s+/)
-    .map((w) => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w))
+    .map((w) => {
+      if (w.length > 4 && w.endsWith('ies')) return `${w.slice(0, -3)}y`; // berries -> berry
+      if (w.length > 4 && w.endsWith('oes')) return w.slice(0, -2);        // potatoes -> potato
+      return w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w;
+    })
     .join(' ');
 
-/** A pantry item matches an ingredient if all of its words appear in the ingredient name. */
+// Words that change what an ingredient *is*: "rice" must not satisfy "rice noodles",
+// "potato" must not satisfy "sweet potato", "onion" must not satisfy "green onion".
+const DEFINING = new Set(['noodle', 'sauce', 'powder', 'paste', 'broth', 'butter', 'milk', 'cream', 'dressing', 'bun', 'dough', 'sweet', 'green', 'red']);
+
+/**
+ * A pantry item matches an ingredient if all of its words appear in the ingredient name
+ * ("chicken" covers "chicken breast"), unless the ingredient has a defining word the
+ * pantry item lacks.
+ */
 export const hasIngredient = (pantry, ingredientName) => {
   const ing = norm(ingredientName).split(' ');
   return pantry.some((p) => {
     const words = norm(p).split(' ');
-    return words.every((w) => ing.includes(w));
+    if (!words.every((w) => ing.includes(w))) return false;
+    // A defining word on either side means the two must be the same thing
+    // ("butter" is not "peanut butter", "milk" is not "coconut milk").
+    if (words.some((w) => DEFINING.has(w)) || ing.some((w) => DEFINING.has(w))) {
+      return ing.length === words.length;
+    }
+    return true;
   });
 };
 

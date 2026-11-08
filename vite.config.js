@@ -3,14 +3,30 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // In development the API runs on :3001; the proxy keeps requests same-origin so cookies work.
+  server: { proxy: { '/api': 'http://127.0.0.1:3001' } },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
+      workbox: {
+        navigateFallbackDenylist: [/^\/api\//], // never serve the app shell for API paths
+        runtimeCaching: [
+          {
+            urlPattern: /\/food\/.*\.jpg$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'food-photos',
+              expiration: { maxEntries: 200 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
       manifest: {
-        name: 'MealPrep',
-        short_name: 'MealPrep',
+        name: 'EmsMeals',
+        short_name: 'EmsMeals',
         description: 'Weekly meal plans, macro tracking and pantry-based recipe ideas.',
         theme_color: '#14281D',
         background_color: '#F6F9EE',

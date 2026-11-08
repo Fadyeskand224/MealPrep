@@ -2,7 +2,7 @@ import { Icon, Sheet, Stat, Tile } from './ui';
 import { analyzeRecipe } from '../lib/planner';
 import { MEAL_LABEL } from '../data/recipes';
 
-export default function RecipeSheet({ recipe, pantry, onClose, onSwap }) {
+export default function RecipeSheet({ recipe, pantry, favorite, onFavorite, onClose, onSwap, onAdd }) {
   const { ingredients, haveCount, coreCount } = analyzeRecipe(recipe, pantry);
 
   return (
@@ -10,6 +10,14 @@ export default function RecipeSheet({ recipe, pantry, onClose, onSwap }) {
       <div className="recipe-hero">
         <Tile recipe={recipe} size="fill" zoom />
         <span className="meal-shade" />
+        <button
+          className={`heart heart-hero ${favorite ? 'on' : ''}`}
+          onClick={() => onFavorite(recipe.id)}
+          aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
+          aria-pressed={favorite}
+        >
+          <Icon name="heart" size={20} fill={favorite} />
+        </button>
         <div className="hero-text">
           <div className="eyebrow light">{MEAL_LABEL[recipe.meal]} · {recipe.mins} min · Easy</div>
           <h2>{recipe.name}</h2>
@@ -48,6 +56,11 @@ export default function RecipeSheet({ recipe, pantry, onClose, onSwap }) {
           ))}
         </ol>
 
+        {onAdd && (
+          <button className="btn btn-primary btn-block" onClick={onAdd}>
+            <Icon name="plus" size={18} /> Add to my week
+          </button>
+        )}
         {onSwap && (
           <button className="btn btn-ghost btn-block" onClick={onSwap}>
             <Icon name="swap" size={18} /> Replace this meal
