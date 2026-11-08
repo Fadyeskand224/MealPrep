@@ -8,15 +8,17 @@ import { createSessionStore, SESSION_DAYS } from './sessions.js';
 import { createAttemptTracker } from './attempts.js';
 import { validateEmail, validateName, validateUserData } from './validate.js';
 import { LEGAL } from '../src/legal/config.js';
+import { createBarcodeLookup, isValidBarcode, UpstreamError } from './barcode.js';
 
 const GENERIC_LOGIN_ERROR = 'Incorrect email or password.';
 const LOCKED_ERROR = 'Too many attempts. Please wait a few minutes and try again.';
 
-export function createApp({ db, prod = false, distDir = null, allowedOrigins = [], limits = {} } = {}) {
+export function createApp({ db, prod = false, distDir = null, allowedOrigins = [], limits = {}, fetchImpl } = {}) {
   const app = express();
   const sessions = createSessionStore(db);
   const loginAttempts = createAttemptTracker(db, { scope: 'login' });
   const passwordAttempts = createAttemptTracker(db, { scope: 'password' });
+  const barcodes = createBarcodeLookup({ db, fetchImpl });
 
   const COOKIE = prod ? '__Host-sid' : 'sid'; // __Host- pins the cookie to this exact host over HTTPS
   const cookieOpts = { httpOnly: true, secure: prod, sameSite: 'lax', path: '/' };
@@ -69,6 +71,7 @@ export function createApp({ db, prod = false, distDir = null, allowedOrigins = [
   const limiter = (windowMs, limit) => rateLimit({ windowMs, limit, standardHeaders: true, legacyHeaders: false, message: tooMany });
   const authLimiter = limiter(15 * 60e3, limits.auth ?? 30);
   const signupLimiter = limiter(60 * 60e3, limits.signup ?? 10);
+  const barcodeLimiter = limiter(10 * 60e3, limits.barcode ?? 150);
   api.use(limiter(15 * 60e3, limits.general ?? 600));
 
   const readCookie = (req) => {
@@ -213,6 +216,18 @@ export function createApp({ db, prod = false, distDir = null, allowedOrigins = [
     ]);
     clearSession(res);
     return res.json({ ok: true });
+  }));
+
+  // ───────── Barcode lookup (for the pantry scanner) ─────────
+  api.get('/barcode/:code', requireAuth, barcodeLimiter, h(async (req, res) => {
+    const code = req.params.code;
+    if (!isValidBarcode(code)) return res.status(400).json({ error: 'That barcode looks misread. Try scanning again.' });
+    try {
+      return res.json(await barcodes.lookup(code));
+    } catch (e) {
+      if (e instanceof UpstreamError) return res.status(502).json({ error: 'The product database is unavailable right now. You can type the item name instead.' });
+      throw e;
+    }
   }));
 
   // ───────── User data ─────────

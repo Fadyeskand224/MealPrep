@@ -17,7 +17,7 @@ import { Icon } from './components/ui';
 import { changePassword, deleteAccount, fetchCurrentUser, logOut } from './lib/auth';
 import { setUnauthorizedHandler } from './lib/api';
 import { loadServerData, removeLegacyAccounts, saveServerData, writeCache } from './lib/sync';
-import { todayIndex, fmtFull, planDate } from './lib/store';
+import { todayIndex, fmtFull, planDate, MAX_PANTRY } from './lib/store';
 import { expiringItems, usablePantry } from './lib/expiry';
 import { generateWeek } from './lib/planner';
 import { RECIPES, RECIPE_BY_ID } from './data/recipes';
@@ -225,11 +225,29 @@ function Main({ user, initial, onLogout, onDeleted }) {
     });
 
   const addPantry = (item, date) =>
-    setData((d) => ({
-      ...d,
-      pantry: d.pantry.includes(item) ? d.pantry : [...d.pantry, item],
-      pantryExpiry: date ? { ...d.pantryExpiry, [item]: date } : d.pantryExpiry,
-    }));
+    setData((d) => {
+      const isNew = !d.pantry.includes(item);
+      if (isNew && d.pantry.length >= MAX_PANTRY) return d; // the server caps the pantry; never exceed it
+      return {
+        ...d,
+        pantry: isNew ? [...d.pantry, item] : d.pantry,
+        pantryExpiry: date ? { ...d.pantryExpiry, [item]: date } : d.pantryExpiry,
+      };
+    });
+  // Fix a name in place (keeps its position and expiration date). Merging into an existing item is fine.
+  const renamePantry = (from, to) =>
+    setData((d) => {
+      const name = to.trim().toLowerCase().slice(0, 60);
+      if (!name || name === from || !d.pantry.includes(from)) return d;
+      const idx = d.pantry.indexOf(from);
+      const without = d.pantry.filter((p) => p !== from);
+      const pantry = without.includes(name) ? without : [...without.slice(0, idx), name, ...without.slice(idx)];
+      const pantryExpiry = { ...d.pantryExpiry };
+      const date = pantryExpiry[from];
+      delete pantryExpiry[from];
+      if (date && !pantryExpiry[name]) pantryExpiry[name] = date;
+      return { ...d, pantry, pantryExpiry };
+    });
   const removePantry = (item) =>
     setData((d) => {
       const pantryExpiry = { ...d.pantryExpiry };
@@ -273,7 +291,7 @@ function Main({ user, initial, onLogout, onDeleted }) {
         {tab === 'pantry' && (
           <Pantry
             pantry={data.pantry} expiry={data.pantryExpiry} warnDays={data.expiryWarnDays} usable={usable}
-            onAdd={addPantry} onRemove={removePantry} onSetExpiry={setExpiry}
+            onAdd={addPantry} onRemove={removePantry} onRename={renamePantry} onSetExpiry={setExpiry}
             onWarnDays={(n) => update({ expiryWarnDays: n })} onOpen={(id) => openRecipe(id)}
           />
         )}

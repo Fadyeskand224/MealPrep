@@ -24,6 +24,12 @@ const SCHEMA = [
      json       TEXT NOT NULL,
      updated_at INTEGER NOT NULL
    )`,
+  // Cached product lookups (Open Food Facts), so repeat scans are instant and we stay polite to the free service.
+  `CREATE TABLE IF NOT EXISTS barcodes (
+     code       TEXT PRIMARY KEY,
+     json       TEXT NOT NULL,
+     fetched_at INTEGER NOT NULL
+   )`,
   // Failed-attempt counters for lockout. Keys are hashed, so no emails are stored here.
   `CREATE TABLE IF NOT EXISTS attempts (
      key          TEXT PRIMARY KEY,

@@ -115,7 +115,7 @@ export default function Login({ onAuthed }) {
         </button>
 
         <p className="login-legal">
-          <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/credits">Photo credits</a>
+          <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/credits">Credits</a>
         </p>
       </form>
     </div>

@@ -1,4 +1,7 @@
 // Shape of a user's app data. It is stored on the server (see lib/sync.js).
+/** The server accepts at most this many pantry items. */
+export const MAX_PANTRY = 200;
+
 export const defaultData = () => ({
   plan: null,      // { createdAt, days: [{breakfast, lunch, dinner}] x7 }
   eaten: {},       // { "dayIndex:slot": true }

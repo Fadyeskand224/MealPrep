@@ -131,7 +131,7 @@ export default function Profile({ user, data, onTarget, onRestore, onLogout, onC
         <DownloadData />
         <a className="row-link" href="/privacy">Privacy Policy <span>›</span></a>
         <a className="row-link" href="/terms">Terms of Service <span>›</span></a>
-        <a className="row-link" href="/credits">Photo credits <span>›</span></a>
+        <a className="row-link" href="/credits">Credits <span>›</span></a>
         <p className="muted fine">Nutrition figures are estimates, not medical advice. Check labels if you have allergies.</p>
       </section>
 

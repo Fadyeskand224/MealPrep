@@ -106,6 +106,7 @@ export const pickRandomSwap = (plan, slot, dislikes) => {
 
 // ───────── Pantry matching ─────────
 
+export const normalizeName = (s) => norm(s);
 const norm = (s) =>
   s
     .toLowerCase()

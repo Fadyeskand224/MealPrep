@@ -43,6 +43,7 @@ export function createSessionStore(db) {
     prune: async () => {
       await db.run('DELETE FROM sessions WHERE expires_at < ?', [Date.now()]);
       await db.run('DELETE FROM attempts WHERE locked_until < ? AND first_at < ?', [Date.now(), Date.now() - 86400000]);
+      await db.run('DELETE FROM barcodes WHERE fetched_at < ?', [Date.now() - 60 * 86400000]);
     },
   };
 }

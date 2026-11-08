@@ -15,6 +15,7 @@ export default function Privacy() {
       <ul>
         <li><b>Account information:</b> your name and email address, and your password. Your password is never stored; we keep only a salted one-way hash of it.</li>
         <li><b>Information you add to the app:</b> your weekly meal plan, which meals you mark as eaten, your pantry items and any expiration dates you add, favorite and hidden recipes, grocery-list check marks, and your daily calorie goal. The calorie goal and eaten-meal records may reveal information about your diet or health, so we treat them as sensitive and use them only to provide the service to you.</li>
+        <li><b>Barcodes you scan:</b> if you use the pantry scanner, the app asks for camera permission only when you open it. The camera image is analyzed on your device and is never uploaded or stored. Only the barcode number is sent to our server to identify the product, and the product name you end up adding is saved to your pantry like any other item.</li>
         <li><b>Consent record:</b> when you accepted our Terms and Privacy Policy, and which version.</li>
         <li><b>Technical information:</b> your IP address and basic request details are processed by our hosting provider to deliver the site, and briefly by our software to limit abuse (rate limiting and sign-in lockouts). Sign-in lockout records are stored under an irreversible hash, not your email address.</li>
       </ul>
@@ -42,6 +43,7 @@ export default function Privacy() {
       <ul>
         <li><b>Render</b> hosts the app’s servers (United States).</li>
         <li><b>Turso</b> hosts the database where your account and data are stored (United States).</li>
+        <li><b>Open Food Facts</b> is a public, community-run product database. When you scan a barcode, our server sends it only the barcode number to look up the product. We do not send your name, email address, IP address or any account details. We keep a copy of the public product details (not linked to you) for up to 60 days so repeat scans are fast.</li>
       </ul>
       <p>
         If you use the grocery list “Send to Notes” or “Copy” feature, the list leaves the app only at your direction, to the app you
@@ -91,8 +93,9 @@ export default function Privacy() {
       <h2>10. Third-party content</h2>
       <p>
         Food photos are stored on our own servers, so your browser does not contact any outside photo service to display them. They
-        come from Wikimedia Commons under free licenses; see <a href="/credits">Photo credits</a>. If you follow a credit link, that
-        site’s own privacy policy applies.
+        come from Wikimedia Commons under free licenses; see <a href="/credits">Credits</a>. If you follow a credit link, that
+        site’s own privacy policy applies. Product names and details shown after a barcode scan come from{' '}
+        <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer noopener">Open Food Facts</a>, available under the Open Database License.
       </p>
 
       <h2>11. Changes to this policy</h2>

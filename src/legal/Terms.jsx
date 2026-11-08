@@ -49,7 +49,7 @@ export default function Terms() {
       <h2>6. Our content</h2>
       <p>
         The app, its design, code, recipe text and selection are owned by us or our licensors and are protected by law. Food photos are
-        provided by third parties under the free licenses listed on the <a href="/credits">Photo credits</a> page; those licenses, not
+        provided by third parties under the free licenses listed on the <a href="/credits">Credits</a> page; those licenses, not
         these terms, govern your use of the photos.
       </p>
 

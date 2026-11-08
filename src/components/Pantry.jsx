@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Tile } from './ui';
+import { Icon, Tile } from './ui';
+import ScanSheet from './ScanSheet';
 import ExpiryAlert from './ExpiryAlert';
 import { ALL_INGREDIENTS, STAPLES } from '../data/recipes';
 import { hasIngredient, recommend } from '../lib/planner';
@@ -8,13 +9,22 @@ import { expiringItems, labelOf, sortByUrgency, statusOf } from '../lib/expiry';
 const QUICK = ['eggs', 'chicken breast', 'rice', 'pasta', 'spinach', 'black beans', 'cheddar cheese', 'tortillas', 'banana', 'onion'];
 const FILTERS = [['all', 'All'], ['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['dinner', 'Dinner']];
 
-export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemove, onSetExpiry, onWarnDays, onOpen }) {
+export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemove, onRename, onSetExpiry, onWarnDays, onOpen }) {
   const [text, setText] = useState('');
   const [date, setDate] = useState('');
   const [filter, setFilter] = useState('all');
+  const [scanning, setScanning] = useState(false);
+  const [onlyUndated, setOnlyUndated] = useState(false);
 
   const attention = useMemo(() => expiringItems(pantry, expiry, warnDays), [pantry, expiry, warnDays]);
   const sorted = useMemo(() => sortByUrgency(pantry, expiry), [pantry, expiry]);
+  const undatedCount = useMemo(() => pantry.filter((n) => !expiry[n]).length, [pantry, expiry]);
+  const showUndatedOnly = onlyUndated && undatedCount > 0; // falls back to everything once all have dates
+  const visible = showUndatedOnly ? sorted.filter((n) => !expiry[n]) : sorted;
+  const closeScan = (count) => {
+    setScanning(false);
+    if (count > 0) setOnlyUndated(true); // jump straight to adding dates for what was just scanned
+  };
   // Food that is still good but should be eaten soon; recipes using it float to the top.
   const useSoon = useMemo(() => attention.filter((i) => i.status === 'soon').map((i) => i.name), [attention]);
 
@@ -45,6 +55,10 @@ export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemo
 
       <ExpiryAlert items={attention} />
 
+      <button className="btn btn-primary btn-block scan-cta" onClick={() => setScanning(true)}>
+        <Icon name="camera" size={20} /> Scan barcodes
+      </button>
+
       <form className="addform" onSubmit={add}>
         <div className="addbar">
           <input
@@ -69,8 +83,15 @@ export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemo
 
       {pantry.length > 0 && (
         <>
+          {undatedCount > 0 && (
+            <div className="pills" role="group" aria-label="Which items to show">
+              <button className={`pill ${!showUndatedOnly ? 'on' : ''}`} onClick={() => setOnlyUndated(false)}>All items ({pantry.length})</button>
+              <button className={`pill ${showUndatedOnly ? 'on' : ''}`} onClick={() => setOnlyUndated(true)}>Needs a date ({undatedCount})</button>
+            </div>
+          )}
+          {showUndatedOnly && <p className="muted fine">Showing items without an expiration date. Tap a date field to set one.</p>}
           <ul className="pitems">
-            {sorted.map((name) => {
+            {visible.map((name) => {
               const status = statusOf(expiry[name], warnDays);
               return (
                 <li key={name} className={`pitem ${status}`}>
@@ -150,6 +171,15 @@ export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemo
             </button>
           ))}
         </>
+      )}
+      {scanning && (
+        <ScanSheet
+          pantry={pantry}
+          onAdd={(name) => onAdd(name, null)}
+          onRemove={onRemove}
+          onRename={onRename}
+          onClose={closeScan}
+        />
       )}
     </div>
   );

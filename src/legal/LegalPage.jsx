@@ -17,7 +17,7 @@ export default function LegalPage({ title, children }) {
       )}
       <main>{children}</main>
       <footer>
-        <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a> · <a href="/credits">Photo credits</a>
+        <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a> · <a href="/credits">Credits</a>
       </footer>
     </div>
   );
