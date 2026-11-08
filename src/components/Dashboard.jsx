@@ -99,9 +99,9 @@ export default function Dashboard({
             </div>
           </div>
         </div>
-        <MacroBar label="Protein" eaten={done.protein} planned={planned.protein} goal={goals.protein} color="linear-gradient(90deg,#ff8a5c,#ff4d2e)" />
+        <MacroBar label="Protein" eaten={done.protein} planned={planned.protein} goal={goals.protein} color="linear-gradient(90deg,#ff9a6c,#ff5a36)" />
         <MacroBar label="Carbs" eaten={done.carbs} planned={planned.carbs} goal={goals.carbs} color="linear-gradient(90deg,#ffd36e,#f5a524)" />
-        <MacroBar label="Fat" eaten={done.fat} planned={planned.fat} goal={goals.fat} color="linear-gradient(90deg,#c5e07a,#8fb63a)" />
+        <MacroBar label="Fat" eaten={done.fat} planned={planned.fat} goal={goals.fat} color="linear-gradient(90deg,#b8ee7a,#5fc24a)" />
       </section>
 
       <div className="section-head">

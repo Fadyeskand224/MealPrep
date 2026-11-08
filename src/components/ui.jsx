@@ -52,8 +52,8 @@ export function Ring({ value, max, size = 140, stroke = 12, children }) {
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <defs>
           <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#ffc15a" />
-            <stop offset="1" stopColor="#ff5a36" />
+            <stop offset="0" stopColor="#a6e86a" />
+            <stop offset="1" stopColor="#2fbf71" />
           </linearGradient>
         </defs>
         <circle cx={size / 2} cy={size / 2} r={r} className="ring-track" strokeWidth={stroke} fill="none" />
