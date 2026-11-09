@@ -1,10 +1,12 @@
 import { Icon, Tile } from './ui';
-import { RECIPE_BY_ID, MEALS, MEAL_LABEL } from '../data/recipes';
+import { MEALS, MEAL_LABEL } from '../data/recipes';
+import { useRecipes } from './RecipesContext';
 import { dayTotals } from '../lib/planner';
 import { fmtFull, planDate } from '../lib/store';
 
 export default function Plan({ data, onGenerate, onOpen, onSwap, onJumpDay, onGrocery }) {
   const { plan } = data;
+  const { byId } = useRecipes();
 
   return (
     <div className="screen">
@@ -36,7 +38,7 @@ export default function Plan({ data, onGenerate, onOpen, onSwap, onJumpDay, onGr
         </div>
       ) : (
         plan.days.map((d, i) => {
-          const t = dayTotals(d);
+          const t = dayTotals(d, undefined, byId);
           return (
             <section key={i} className="card day">
               <button className="day-head" onClick={() => onJumpDay(i)}>
@@ -44,7 +46,7 @@ export default function Plan({ data, onGenerate, onOpen, onSwap, onJumpDay, onGr
                 <small>{t.kcal} kcal · {t.protein}g protein</small>
               </button>
               {MEALS.map((slot) => {
-                const rec = RECIPE_BY_ID[d[slot]];
+                const rec = byId[d[slot]];
                 return (
                   <div key={slot} className="row plain">
                     <button className="row-tap" onClick={() => onOpen(rec.id, i, slot)}>

@@ -1,24 +1,26 @@
 import { useMemo, useState } from 'react';
 import { Icon, Sheet, Tile } from './ui';
-import { RECIPES, RECIPE_BY_ID, MEAL_LABEL } from '../data/recipes';
+import { MEAL_LABEL } from '../data/recipes';
+import { useRecipes } from './RecipesContext';
 
 /** Replace a slot with any recipe: surprise me, or search the whole catalog. */
 export default function SwapSheet({ plan, dislikes, favorites, day, slot, dayLabel, onPick, onClose }) {
-  const current = RECIPE_BY_ID[plan.days[day][slot]];
+  const { list, byId } = useRecipes();
+  const current = byId[plan.days[day][slot]];
   const [never, setNever] = useState(false);
   const [query, setQuery] = useState('');
 
   const { fresh, all } = useMemo(() => {
     const used = new Set(plan.days.map((d) => d[slot]));
     const q = query.trim().toLowerCase();
-    const pool = RECIPES.filter(
+    const pool = list.filter(
       (x) => x.meal === slot && x.id !== current.id && !dislikes.includes(x.id) &&
         (!q || x.name.toLowerCase().includes(q) || x.ingredients.some((i) => i.name.includes(q)))
     );
     const rank = (x) => (favorites.includes(x.id) ? 0 : 1);
     const sorted = [...pool].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
     return { fresh: pool.filter((x) => !used.has(x.id)), all: sorted.map((x) => ({ x, inWeek: used.has(x.id) })) };
-  }, [plan, slot, dislikes, favorites, query, current.id]);
+  }, [plan, slot, dislikes, favorites, query, current.id, list]);
 
   const surprise = () => {
     const src = fresh.length ? fresh : all.map((a) => a.x);

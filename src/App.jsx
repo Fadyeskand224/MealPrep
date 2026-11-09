@@ -21,6 +21,8 @@ import { todayIndex, fmtFull, planDate, MAX_PANTRY } from './lib/store';
 import { expiringItems, usablePantry } from './lib/expiry';
 import { generateWeek } from './lib/planner';
 import { RECIPES, RECIPE_BY_ID } from './data/recipes';
+import { personalizeAll } from './lib/nutrition';
+import { RecipesContext } from './components/RecipesContext';
 
 const TABS = [
   ['today', 'today', 'Today'],
@@ -124,6 +126,8 @@ function Main({ user, initial, onLogout, onDeleted }) {
   const expiring = useMemo(() => expiringItems(data.pantry, data.pantryExpiry, data.expiryWarnDays, now), [data.pantry, data.pantryExpiry, data.expiryWarnDays, now]);
   // Expired food is never offered in recipe ideas, "You have this" badges, or the grocery list.
   const usable = useMemo(() => usablePantry(data.pantry, data.pantryExpiry, now), [data.pantry, data.pantryExpiry, now]);
+  // Meal macros adjusted for the products scanned into the pantry (expired food is never counted).
+  const personal = useMemo(() => personalizeAll(RECIPES, usable, data.pantryNutrition), [usable, data.pantryNutrition]);
 
 
   // Save to the server shortly after every change; retry if the network is down.
@@ -171,7 +175,7 @@ function Main({ user, initial, onLogout, onDeleted }) {
 
   const generate = () => {
     if (data.plan && !window.confirm('Replace this week’s plan with a brand new one?')) return;
-    const plan = generateWeek({ target: data.target, dislikes: data.dislikes, favorites: data.favorites });
+    const plan = generateWeek({ target: data.target, dislikes: data.dislikes, favorites: data.favorites, lookup: personal.byId });
     update({ plan, eaten: {}, groceryChecked: {} });
     setDay(0);
   };
@@ -197,7 +201,7 @@ function Main({ user, initial, onLogout, onDeleted }) {
 
   // Put any recipe into any day/slot, building a week around it if there isn't one yet.
   const placeInPlan = (id, d, slot) => {
-    const plan = data.plan || generateWeek({ target: data.target, dislikes: data.dislikes, favorites: data.favorites });
+    const plan = data.plan || generateWeek({ target: data.target, dislikes: data.dislikes, favorites: data.favorites, lookup: personal.byId });
     const days = plan.days.map((x, i) => (i === d ? { ...x, [slot]: id } : x));
     const eaten = { ...data.eaten };
     delete eaten[`${d}:${slot}`];
@@ -224,35 +228,58 @@ function Main({ user, initial, onLogout, onDeleted }) {
       return { ...d, eaten };
     });
 
-  const addPantry = (item, date) =>
+  const clampQty = (n) => Math.max(1, Math.min(999, Math.round(n)));
+  // Everything the app remembers about one pantry item lives under its name in a few maps.
+  const dropItem = (d, item) => {
+    const pantryExpiry = { ...d.pantryExpiry };
+    const pantryQty = { ...d.pantryQty };
+    const pantryNutrition = { ...d.pantryNutrition };
+    delete pantryExpiry[item];
+    delete pantryQty[item];
+    delete pantryNutrition[item];
+    return { ...d, pantry: d.pantry.filter((p) => p !== item), pantryExpiry, pantryQty, pantryNutrition };
+  };
+
+  // Adding something that is already there raises its quantity. Nutrition facts from a scan are kept
+  // for the item (the first one saved wins, so a later look-alike product never overwrites it).
+  const addPantry = (item, { date = null, qty = 1, nutrition = null } = {}) =>
     setData((d) => {
-      const isNew = !d.pantry.includes(item);
-      if (isNew && d.pantry.length >= MAX_PANTRY) return d; // the server caps the pantry; never exceed it
+      const exists = d.pantry.includes(item);
+      if (!exists && d.pantry.length >= MAX_PANTRY) return d; // the server caps the pantry; never exceed it
       return {
         ...d,
-        pantry: isNew ? [...d.pantry, item] : d.pantry,
+        pantry: exists ? d.pantry : [...d.pantry, item],
+        pantryQty: { ...d.pantryQty, [item]: clampQty((exists ? d.pantryQty[item] || 1 : 0) + qty) },
         pantryExpiry: date ? { ...d.pantryExpiry, [item]: date } : d.pantryExpiry,
+        pantryNutrition: nutrition && !d.pantryNutrition[item] ? { ...d.pantryNutrition, [item]: nutrition } : d.pantryNutrition,
       };
     });
-  // Fix a name in place (keeps its position and expiration date). Merging into an existing item is fine.
+  const bumpQty = (item, delta) =>
+    setData((d) => (d.pantry.includes(item) ? { ...d, pantryQty: { ...d.pantryQty, [item]: clampQty((d.pantryQty[item] || 1) + delta) } } : d));
+  // "Undo" for the scanner: one fewer, or gone entirely if it was the only one.
+  const undoPantry = (item) =>
+    setData((d) => ((d.pantryQty[item] || 1) > 1 ? { ...d, pantryQty: { ...d.pantryQty, [item]: d.pantryQty[item] - 1 } } : dropItem(d, item)));
+  const removePantry = (item) => setData((d) => dropItem(d, item));
+  // Fix a name in place (keeps its position, quantity, date and nutrition). Renaming onto an existing item merges them.
   const renamePantry = (from, to) =>
     setData((d) => {
       const name = to.trim().toLowerCase().slice(0, 60);
       if (!name || name === from || !d.pantry.includes(from)) return d;
       const idx = d.pantry.indexOf(from);
       const without = d.pantry.filter((p) => p !== from);
-      const pantry = without.includes(name) ? without : [...without.slice(0, idx), name, ...without.slice(idx)];
+      const merging = without.includes(name);
+      const pantry = merging ? without : [...without.slice(0, idx), name, ...without.slice(idx)];
       const pantryExpiry = { ...d.pantryExpiry };
-      const date = pantryExpiry[from];
+      const pantryQty = { ...d.pantryQty };
+      const pantryNutrition = { ...d.pantryNutrition };
+      const moved = { date: pantryExpiry[from], qty: pantryQty[from] || 1, nutrition: pantryNutrition[from] };
       delete pantryExpiry[from];
-      if (date && !pantryExpiry[name]) pantryExpiry[name] = date;
-      return { ...d, pantry, pantryExpiry };
-    });
-  const removePantry = (item) =>
-    setData((d) => {
-      const pantryExpiry = { ...d.pantryExpiry };
-      delete pantryExpiry[item];
-      return { ...d, pantry: d.pantry.filter((p) => p !== item), pantryExpiry };
+      delete pantryQty[from];
+      delete pantryNutrition[from];
+      if (moved.date && !pantryExpiry[name]) pantryExpiry[name] = moved.date;
+      pantryQty[name] = clampQty((merging ? pantryQty[name] || 1 : 0) + moved.qty);
+      if (moved.nutrition && !pantryNutrition[name]) pantryNutrition[name] = moved.nutrition;
+      return { ...d, pantry, pantryExpiry, pantryQty, pantryNutrition };
     });
   const setExpiry = (item, date) =>
     setData((d) => {
@@ -265,6 +292,7 @@ function Main({ user, initial, onLogout, onDeleted }) {
   const openSwap = (d, slot) => setSwap({ day: d, slot });
 
   return (
+    <RecipesContext.Provider value={personal}>
     <div className="app">
       {saveError && (
         <div className="save-banner" role="status">
@@ -290,8 +318,9 @@ function Main({ user, initial, onLogout, onDeleted }) {
         )}
         {tab === 'pantry' && (
           <Pantry
-            pantry={data.pantry} expiry={data.pantryExpiry} warnDays={data.expiryWarnDays} usable={usable}
-            onAdd={addPantry} onRemove={removePantry} onRename={renamePantry} onSetExpiry={setExpiry}
+            pantry={data.pantry} qty={data.pantryQty} nutrition={data.pantryNutrition} expiry={data.pantryExpiry}
+            warnDays={data.expiryWarnDays} usable={usable}
+            onAdd={addPantry} onRemove={removePantry} onUndo={undoPantry} onRename={renamePantry} onQty={bumpQty} onSetExpiry={setExpiry}
             onWarnDays={(n) => update({ expiryWarnDays: n })} onOpen={(id) => openRecipe(id)}
           />
         )}
@@ -323,7 +352,7 @@ function Main({ user, initial, onLogout, onDeleted }) {
 
       {recipe && (
         <RecipeSheet
-          recipe={RECIPE_BY_ID[recipe.id]}
+          recipe={personal.byId[recipe.id]}
           pantry={usable}
           favorite={data.favorites.includes(recipe.id)}
           onFavorite={toggleFavorite}
@@ -353,5 +382,6 @@ function Main({ user, initial, onLogout, onDeleted }) {
         />
       )}
     </div>
+    </RecipesContext.Provider>
   );
 }

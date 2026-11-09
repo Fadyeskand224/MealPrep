@@ -423,7 +423,7 @@ main { padding-bottom: calc(var(--tab-h) + var(--safe-bottom) + 40px); }
 .date-field input[type='date'], .pitem input[type='date'] { height: 40px; border: 0; background: var(--cream); border-radius: 12px; padding: 0 10px; font: inherit; font-size: 15px; color: var(--cocoa); min-width: 0; }
 .date-field input[type='date'] { flex: none; }
 .pitems { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.pitem { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 18px; padding: 10px 10px 10px 14px; box-shadow: var(--shadow); border-left: 5px solid transparent; animation: pop 0.3s var(--ease) both; }
+.pitem { display: flex; flex-direction: column; gap: 8px; background: #fff; border-radius: 18px; padding: 10px 10px 10px 14px; box-shadow: var(--shadow); border-left: 5px solid transparent; animation: pop 0.3s var(--ease) both; }
 .pitem.soon { border-left-color: var(--saffron); background: #fffaf0; }
 .pitem.expired { border-left-color: #d9381e; background: #fff4f1; }
 .pitem.ok { border-left-color: #8fcf8a; }
@@ -488,3 +488,24 @@ main { padding-bottom: calc(var(--tab-h) + var(--safe-bottom) + 40px); }
 
 .scan-name { display: flex; gap: 8px; align-items: center; }
 .scan-name .btn { flex: none; min-height: 40px; }
+
+
+/* ───────── Pantry quantity & scanned nutrition ───────── */
+.pitem-top { display: flex; align-items: center; gap: 10px; }
+.pitem-top b { flex: 1; min-width: 0; text-transform: capitalize; overflow-wrap: anywhere; font-size: 17px; }
+.pitem-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pitem-nutri { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--muted); background: var(--cream); border-radius: 12px; padding: 8px 10px; line-height: 1.35; }
+.pitem-nutri b { color: var(--cocoa); }
+.qty { display: inline-flex; align-items: center; gap: 2px; background: var(--olive-soft); border-radius: 14px; padding: 3px; flex: none; }
+.qty button { width: 34px; height: 34px; border-radius: 11px; color: var(--olive); font-size: 20px; font-weight: 800; text-align: center; transition: transform 0.15s var(--ease), background 0.2s; }
+.qty button:active { transform: scale(0.88); background: rgba(255, 255, 255, 0.7); }
+.qty button:disabled { opacity: 0.35; }
+.qty span { min-width: 30px; text-align: center; font-weight: 800; font-size: 16px; color: var(--cocoa); font-variant-numeric: tabular-nums; }
+.add-extras { display: flex; flex-direction: column; gap: 8px; }
+.add-extras .date-field { min-height: 52px; }
+.scan-nutri { white-space: normal !important; color: var(--olive) !important; }
+.adjust-note { position: relative; margin: 2px 0 0; font-size: 12.5px; color: rgba(255, 255, 255, 0.75); }
+.adjust-box { background: #fff; border-radius: 18px; padding: 12px 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; border-left: 5px solid var(--accent); }
+.adjust-box ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.adjust-box li { display: flex; flex-direction: column; gap: 1px; }
+.adjust-box li span { font-weight: 650; }

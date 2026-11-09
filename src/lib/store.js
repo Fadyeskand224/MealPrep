@@ -7,6 +7,8 @@ export const defaultData = () => ({
   eaten: {},       // { "dayIndex:slot": true }
   pantry: [],      // ["eggs", "rice", ...]
   dislikes: [],    // recipe ids the user swapped away from
+  pantryQty: {},       // { itemName: how many you have } (missing means 1)
+  pantryNutrition: {}, // { itemName: { kcal, protein, carbs, fat, label } } per 100 g, from scanned products
   pantryExpiry: {},   // { itemName: 'YYYY-MM-DD' } optional expiration dates
   expiryWarnDays: 3,  // start warning this many days before an item expires
   groceryChecked: {}, // { ingredientName: true } items ticked off while shopping

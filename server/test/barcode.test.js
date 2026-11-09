@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { openDb } from '../db.js';
 import { createApp } from '../app.js';
-import { isValidBarcode, shapeProduct } from '../barcode.js';
+import { isValidBarcode, shapeProduct, shapeNutrition } from '../barcode.js';
 
 /** A stand-in for Open Food Facts that records every request. */
 function fakeOff(handler) {
@@ -63,7 +63,7 @@ test('shapeProduct keeps only bounded plain fields and drops unusable products',
   assert.ok(!/[<>\u0000]/.test(p.name));
   assert.equal(p.genericName.length, 120);
   assert.deepEqual(p.categories, ['spreads', 'sweet spreads'], 'only English tags, hyphens turned into spaces');
-  assert.deepEqual(Object.keys(p).sort(), ['brands', 'categories', 'code', 'genericName', 'name', 'quantity']);
+  assert.deepEqual(Object.keys(p).sort(), ['brands', 'categories', 'code', 'genericName', 'name', 'nutrition', 'quantity']);
   assert.equal(shapeProduct(GOOD, { product_name: '', generic_name: '' }), null, 'no usable name means not found');
   assert.equal(shapeProduct(GOOD, null), null);
   assert.equal(shapeProduct(GOOD, 'string'), null);
@@ -85,7 +85,7 @@ test('a known product is returned in a clean shape, and only our fixed host is c
   const r = await t.call('GET', `/api/barcode/${GOOD}`, { cookie: t.cookie });
   assert.equal(r.status, 200);
   assert.equal(r.json.found, true);
-  assert.deepEqual(r.json.product, { code: GOOD, name: 'Spaghetti Nº5', genericName: 'Spaghetti', brands: 'Barilla', categories: ['pastas'], quantity: '500 g' });
+  assert.deepEqual(r.json.product, { code: GOOD, name: 'Spaghetti Nº5', genericName: 'Spaghetti', brands: 'Barilla', categories: ['pastas'], quantity: '500 g', nutrition: null });
   assert.equal(t.off.calls.length, 1);
   const { url, opts } = t.off.calls[0];
   assert.ok(url.startsWith('https://world.openfoodfacts.org/api/v2/product/3017620422003.json?fields='), url);
@@ -171,5 +171,37 @@ test('lookups are rate limited', async () => {
   const statuses = [];
   for (let i = 0; i < 5; i++) statuses.push((await t.call('GET', `/api/barcode/${GOOD}`, { cookie: t.cookie })).status);
   assert.deepEqual(statuses, [200, 200, 200, 429, 429]);
+  await t.close();
+});
+
+test('nutrition facts: real products pass through, nonsense is dropped', () => {
+  // Barilla spaghetti, exactly as Open Food Facts returned it
+  assert.deepEqual(shapeNutrition({ nutriments: { 'energy-kcal_100g': 359, 'energy_100g': 1521, proteins_100g: 13, carbohydrates_100g: 71, fat_100g: 2, fiber_100g: 3 } }), { kcal: 359, protein: 13, carbs: 71, fat: 2 });
+  // only kilojoules given: converted
+  assert.deepEqual(shapeNutrition({ nutriments: { energy_100g: 1521, proteins_100g: 13, carbohydrates_100g: 71, fat_100g: 2 } }), { kcal: 363.5, protein: 13, carbs: 71, fat: 2 });
+  // numbers as strings are accepted
+  assert.equal(shapeNutrition({ nutriments: { 'energy-kcal_100g': '42.4', proteins_100g: '0', carbohydrates_100g: '10.6', fat_100g: '0' } }).kcal, 42.4);
+  const bad = [
+    null, {}, { nutriments: null }, { nutriments: {} },
+    { nutriments: { 'energy-kcal_100g': 359, proteins_100g: 13, carbohydrates_100g: 71 } },                       // fat missing
+    { nutriments: { 'energy-kcal_100g': 359, proteins_100g: 13, carbohydrates_100g: 71, fat_100g: 'lots' } },    // not a number
+    { nutriments: { 'energy-kcal_100g': 5000, proteins_100g: 10, carbohydrates_100g: 10, fat_100g: 10 } },       // impossible calories
+    { nutriments: { 'energy-kcal_100g': 359, proteins_100g: 60, carbohydrates_100g: 60, fat_100g: 20 } },        // over 100 g per 100 g
+    { nutriments: { 'energy-kcal_100g': 50, proteins_100g: 13, carbohydrates_100g: 71, fat_100g: 2 } },          // calories contradict macros
+    { nutriments: { 'energy-kcal_100g': -1, proteins_100g: 1, carbohydrates_100g: 1, fat_100g: 1 } },
+    { nutriments: { 'energy-kcal_100g': Infinity, proteins_100g: 1, carbohydrates_100g: 1, fat_100g: 1 } },
+  ];
+  for (const b of bad) assert.equal(shapeNutrition(b), null, JSON.stringify(b));
+});
+
+test('the lookup returns nutrition, and older cached entries without it are refreshed once', async () => {
+  const t = await boot({ handler: () => offHit({ nutriments: { 'energy-kcal_100g': 359, proteins_100g: 13, carbohydrates_100g: 71, fat_100g: 2 } }) });
+  // an entry cached by the previous version of the app (no nutrition key)
+  await t.db.run('INSERT INTO barcodes (code, json, fetched_at) VALUES (?, ?, ?)', [GOOD, JSON.stringify({ code: GOOD, name: 'Spaghetti', genericName: '', brands: '', categories: [], quantity: '' }), Date.now()]);
+  const r = await t.call('GET', `/api/barcode/${GOOD}`, { cookie: t.cookie });
+  assert.deepEqual(r.json.product.nutrition, { kcal: 359, protein: 13, carbs: 71, fat: 2 });
+  assert.equal(t.off.calls.length, 1, 'refreshed because the cached copy had no nutrition');
+  await t.call('GET', `/api/barcode/${GOOD}`, { cookie: t.cookie });
+  assert.equal(t.off.calls.length, 1, 'and cached again afterwards');
   await t.close();
 });

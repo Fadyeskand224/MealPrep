@@ -10,6 +10,7 @@ const TRAILING = new Set([
   'boneless', 'skinless', 'fresh', 'frozen', 'organic', 'natural', 'raw', 'whole', 'sliced', 'shredded', 'diced', 'chopped',
   'unsalted', 'salted', 'low', 'fat', 'free', 'reduced', 'sodium', 'original', 'classic', 'plain', 'large', 'small', 'medium',
   'block', 'slice', 'grated', 'crumbled', 'mild', 'sharp', 'extra', 'real', 'pure', 'rigate', 'lite', 'light', 'unsweetened',
+  'nonfat', 'lowfat', 'skim', 'fatfree', 'non', 'style', 'zero', 'percent',
 ]);
 
 // Words that describe the food rather than turn it into something else ("whole milk" is still milk).

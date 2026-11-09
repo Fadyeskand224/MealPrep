@@ -23,9 +23,9 @@ export const goalsFor = (kcal) => ({
 const emptyTotals = () => ({ kcal: 0, protein: 0, carbs: 0, fat: 0 });
 
 /** Sum macros for the meals of one day. If `eaten` is given, only count eaten ones. */
-export const dayTotals = (day, eaten) =>
+export const dayTotals = (day, eaten, lookup = RECIPE_BY_ID) =>
   MEALS.reduce((t, slot) => {
-    const rec = RECIPE_BY_ID[day[slot]];
+    const rec = lookup[day[slot]];
     if (!rec || (eaten && !eaten[slot])) return t;
     t.kcal += rec.kcal;
     t.protein += rec.protein;
@@ -39,7 +39,7 @@ export const dayTotals = (day, eaten) =>
  * calories land closest to the target, with no repeated meals and no back-to-back
  * days of the same main protein in the same slot.
  */
-export function generateWeek({ target = 2000, dislikes = [], favorites = [] } = {}) {
+export function generateWeek({ target = 2000, dislikes = [], favorites = [], lookup = RECIPE_BY_ID } = {}) {
   let best = null;
   let bestScore = Infinity;
 
@@ -70,7 +70,7 @@ export function generateWeek({ target = 2000, dislikes = [], favorites = [] } = 
     }
     if (!ok) continue;
 
-    const score = days.reduce((s, day) => s + Math.abs(dayTotals(day).kcal - target), 0);
+    const score = days.reduce((s, day) => s + Math.abs(dayTotals(day, undefined, lookup).kcal - target), 0);
     if (score < bestScore) {
       bestScore = score;
       best = days;

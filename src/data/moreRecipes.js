@@ -137,7 +137,7 @@ export const MORE_RECIPES = [
     ['2|chicken thighs', '3 tbsp|bbq sauce', '1|corn', '1 medium|potatoes'],
     ['Brush the chicken with BBQ sauce and roast at 425°F (220°C) with cubed potatoes for 30 minutes.', 'Boil or grill the corn and serve alongside.']),
   r('d-mushroom-risotto', 'Creamy Mushroom Risotto', '🍄', 'dinner', 40, [500, 16, 76, 14], 'mushroom',
-    ['3/4 cup|rice', '1 cup|mushrooms', '1/2|onion', '1/4 cup|parmesan', '2 cups|vegetable broth'],
+    ['2 1/2 oz|rice', '1 cup|mushrooms', '1/2|onion', '1/4 cup|parmesan', '2 cups|vegetable broth'],
     ['Sauté mushrooms and onion, then stir in the rice.', 'Add warm broth a ladle at a time, stirring, for about 25 minutes.', 'Finish with parmesan.']),
   r('d-burger', 'Cheeseburger & Sweet Potato Fries', '🍔', 'dinner', 35, [690, 40, 50, 34], 'beef',
     ['5 oz|ground beef', '1|burger bun', '1 slice|cheddar cheese', '1 leaf|lettuce', '2 slices|tomato', '1|sweet potato'],

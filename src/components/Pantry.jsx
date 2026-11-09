@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Icon, Tile } from './ui';
 import ScanSheet from './ScanSheet';
 import ExpiryAlert from './ExpiryAlert';
+import { useRecipes } from './RecipesContext';
 import { ALL_INGREDIENTS, STAPLES } from '../data/recipes';
 import { hasIngredient, recommend } from '../lib/planner';
 import { expiringItems, labelOf, sortByUrgency, statusOf } from '../lib/expiry';
@@ -9,9 +10,25 @@ import { expiringItems, labelOf, sortByUrgency, statusOf } from '../lib/expiry';
 const QUICK = ['eggs', 'chicken breast', 'rice', 'pasta', 'spinach', 'black beans', 'cheddar cheese', 'tortillas', 'banana', 'onion'];
 const FILTERS = [['all', 'All'], ['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['dinner', 'Dinner']];
 
-export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemove, onRename, onSetExpiry, onWarnDays, onOpen }) {
+// Buttons report "-1" / "+1" (not a new total), so quick successive taps always add up.
+function Qty({ name, value, onDelta }) {
+  return (
+    <div className="qty" role="group" aria-label={`Quantity of ${name}`}>
+      <button type="button" onClick={() => onDelta(-1)} disabled={value <= 1} aria-label={`One fewer ${name}`}>−</button>
+      <span aria-live="polite">{value}</span>
+      <button type="button" onClick={() => onDelta(1)} disabled={value >= 999} aria-label={`One more ${name}`}>+</button>
+    </div>
+  );
+}
+
+export default function Pantry({
+  pantry, qty, nutrition, expiry, warnDays, usable,
+  onAdd, onRemove, onUndo, onRename, onQty, onSetExpiry, onWarnDays, onOpen,
+}) {
+  const { byId } = useRecipes();
   const [text, setText] = useState('');
   const [date, setDate] = useState('');
+  const [count, setCount] = useState(1);
   const [filter, setFilter] = useState('all');
   const [scanning, setScanning] = useState(false);
   const [onlyUndated, setOnlyUndated] = useState(false);
@@ -21,9 +38,9 @@ export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemo
   const undatedCount = useMemo(() => pantry.filter((n) => !expiry[n]).length, [pantry, expiry]);
   const showUndatedOnly = onlyUndated && undatedCount > 0; // falls back to everything once all have dates
   const visible = showUndatedOnly ? sorted.filter((n) => !expiry[n]) : sorted;
-  const closeScan = (count) => {
+  const closeScan = (newItems) => {
     setScanning(false);
-    if (count > 0) setOnlyUndated(true); // jump straight to adding dates for what was just scanned
+    if (newItems > 0) setOnlyUndated(true); // jump straight to adding dates for what was just scanned
   };
   // Food that is still good but should be eaten soon; recipes using it float to the top.
   const useSoon = useMemo(() => attention.filter((i) => i.status === 'soon').map((i) => i.name), [attention]);
@@ -39,10 +56,13 @@ export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemo
   const add = (e) => {
     e?.preventDefault();
     const v = text.trim().toLowerCase();
-    if (v) onAdd(v, date || null);
+    if (v) onAdd(v, { date: date || null, qty: count });
     setText('');
     setDate('');
+    setCount(1);
   };
+
+  const withNutrition = pantry.filter((n) => nutrition[n]).length;
 
   return (
     <div className="screen">
@@ -75,10 +95,16 @@ export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemo
           </datalist>
           <button className="btn btn-primary" type="submit">Add</button>
         </div>
-        <label className="date-field">
-          <span>Expires <small>(optional)</small></span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
+        <div className="add-extras">
+          <div className="date-field">
+            <span>Quantity</span>
+            <Qty name="new item" value={count} onDelta={(d) => setCount((c) => Math.max(1, Math.min(999, c + d)))} />
+          </div>
+          <label className="date-field">
+            <span>Expires <small>(optional)</small></span>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+        </div>
       </form>
 
       {pantry.length > 0 && (
@@ -93,23 +119,42 @@ export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemo
           <ul className="pitems">
             {visible.map((name) => {
               const status = statusOf(expiry[name], warnDays);
+              const n = nutrition[name];
               return (
                 <li key={name} className={`pitem ${status}`}>
-                  <div className="pitem-main">
+                  <div className="pitem-top">
                     <b>{name}</b>
-                    <span className={`exp-badge ${status}`}>{status === 'none' ? 'No date set' : labelOf(expiry[name])}</span>
+                    <Qty name={name} value={qty[name] || 1} onDelta={(d) => onQty(name, d)} />
+                    <button className="pitem-x" onClick={() => onRemove(name)} aria-label={`Remove ${name}`}>✕</button>
                   </div>
-                  <input
-                    type="date"
-                    aria-label={`Expiration date for ${name}`}
-                    value={expiry[name] || ''}
-                    onChange={(e) => onSetExpiry(name, e.target.value || null)}
-                  />
-                  <button className="pitem-x" onClick={() => onRemove(name)} aria-label={`Remove ${name}`}>✕</button>
+                  <div className="pitem-bottom">
+                    <span className={`exp-badge ${status}`}>{status === 'none' ? 'No date set' : labelOf(expiry[name])}</span>
+                    <input
+                      type="date"
+                      aria-label={`Expiration date for ${name}`}
+                      value={expiry[name] || ''}
+                      onChange={(e) => onSetExpiry(name, e.target.value || null)}
+                    />
+                  </div>
+                  {n && (
+                    <div className="pitem-nutri">
+                      <span aria-hidden="true">📊</span>
+                      <span>
+                        <b>{n.label || 'Scanned product'}</b>: {n.kcal} kcal · P {n.protein} · C {n.carbs} · F {n.fat} per 100 g
+                      </span>
+                    </div>
+                  )}
                 </li>
               );
             })}
           </ul>
+
+          {withNutrition > 0 && (
+            <p className="muted fine">
+              📊 {withNutrition} {withNutrition === 1 ? 'item uses' : 'items use'} nutrition facts from the scanned product, so meals that include
+              {withNutrition === 1 ? ' it show' : ' them show'} macros adjusted to what you actually have.
+            </p>
+          )}
 
           <div className="people warn-row">
             <span>Warn me <small>before items expire</small></span>
@@ -119,7 +164,7 @@ export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemo
               <button onClick={() => onWarnDays(Math.min(14, warnDays + 1))} disabled={warnDays >= 14} aria-label="Warn one day earlier">+</button>
             </div>
           </div>
-          <p className="muted fine">Expired items are left out of recipe ideas and your grocery list, so you’ll be reminded to replace them.</p>
+          <p className="muted fine">Expired items are left out of recipe ideas, meal macros and your grocery list, so you’ll be reminded to replace them.</p>
         </>
       )}
 
@@ -128,7 +173,7 @@ export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemo
           <p className="muted">Quick add:</p>
           <div className="chips">
             {QUICK.map((q) => (
-              <button key={q} className="chip chip-quick" onClick={() => onAdd(q, null)}>+ {q}</button>
+              <button key={q} className="chip chip-quick" onClick={() => onAdd(q)}>+ {q}</button>
             ))}
           </div>
         </>
@@ -148,35 +193,39 @@ export default function Pantry({ pantry, expiry, warnDays, usable, onAdd, onRemo
 
           {results.length === 0 && <p className="muted">Nothing matches yet. Try adding a few more items.</p>}
 
-          {results.map(({ recipe, ingredients, haveCount, coreCount, missing, uses }) => (
-            <button key={recipe.id} className="card idea" onClick={() => onOpen(recipe.id)}>
-              <div className="idea-top">
-                <Tile recipe={recipe} size="md" />
-                <div className="row-main">
-                  <b>{recipe.name}</b>
-                  <small>{recipe.cuisine} · {recipe.mins} min · {recipe.kcal} kcal · {recipe.protein}g protein</small>
-                  <span className={`badge ${missing.length === 0 ? 'badge-have' : 'badge-part'}`}>
-                    {missing.length === 0 ? '✓ You have everything' : `You have ${haveCount} of ${coreCount}`}
-                  </span>
-                  {uses.length > 0 && <span className="badge badge-soon">Uses up your {uses.join(', ')}</span>}
+          {results.map(({ recipe: base, ingredients, haveCount, coreCount, missing, uses }) => {
+            const recipe = byId[base.id] || base;
+            return (
+              <button key={recipe.id} className="card idea" onClick={() => onOpen(recipe.id)}>
+                <div className="idea-top">
+                  <Tile recipe={recipe} size="md" />
+                  <div className="row-main">
+                    <b>{recipe.name}</b>
+                    <small>{recipe.cuisine} · {recipe.mins} min · {recipe.kcal} kcal · {recipe.protein}g protein</small>
+                    <span className={`badge ${missing.length === 0 ? 'badge-have' : 'badge-part'}`}>
+                      {missing.length === 0 ? '✓ You have everything' : `You have ${haveCount} of ${coreCount}`}
+                    </span>
+                    {uses.length > 0 && <span className="badge badge-soon">Uses up your {uses.join(', ')}</span>}
+                  </div>
                 </div>
-              </div>
-              <ul className="mini-ings">
-                {ingredients.filter((i) => !i.staple || i.have).map((i) => (
-                  <li key={i.name} className={i.have ? 'have' : 'need'}>
-                    {i.have ? '✓ You have this' : 'Need'} · {i.name}
-                  </li>
-                ))}
-              </ul>
-            </button>
-          ))}
+                <ul className="mini-ings">
+                  {ingredients.filter((i) => !i.staple || i.have).map((i) => (
+                    <li key={i.name} className={i.have ? 'have' : 'need'}>
+                      {i.have ? '✓ You have this' : 'Need'} · {i.name}
+                    </li>
+                  ))}
+                </ul>
+              </button>
+            );
+          })}
         </>
       )}
       {scanning && (
         <ScanSheet
           pantry={pantry}
-          onAdd={(name) => onAdd(name, null)}
-          onRemove={onRemove}
+          qty={qty}
+          onAdd={onAdd}
+          onUndo={onUndo}
           onRename={onRename}
           onClose={closeScan}
         />

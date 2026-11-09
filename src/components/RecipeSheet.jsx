@@ -2,6 +2,8 @@ import { Icon, Sheet, Stat, Tile } from './ui';
 import { analyzeRecipe } from '../lib/planner';
 import { MEAL_LABEL } from '../data/recipes';
 
+const signed = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0');
+
 export default function RecipeSheet({ recipe, pantry, favorite, onFavorite, onClose, onSwap, onAdd }) {
   const { ingredients, haveCount, coreCount } = analyzeRecipe(recipe, pantry);
 
@@ -30,6 +32,22 @@ export default function RecipeSheet({ recipe, pantry, favorite, onFavorite, onCl
           <Stat k="carbs" v={`${recipe.carbs}g`} />
           <Stat k="fat" v={`${recipe.fat}g`} />
         </div>
+
+        {recipe.adjustments?.length > 0 && (
+          <div className="adjust-box">
+            <b>📊 Adjusted for what’s in your pantry</b>
+            <ul>
+              {recipe.adjustments.map((a) => (
+                <li key={a.ingredient}>
+                  <span>{a.label}</span>
+                  <small>
+                    {a.grams} g of {a.ingredient}: {signed(a.kcal)} kcal · {signed(a.protein)}g protein · {signed(a.carbs)}g carbs · {signed(a.fat)}g fat
+                  </small>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <h3>
           Ingredients{' '}

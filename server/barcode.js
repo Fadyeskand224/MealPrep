@@ -5,7 +5,7 @@ import { isValidBarcode } from '../src/lib/barcodeFormat.js';
 // aren't shared with the product database and we can cache and rate-limit.
 // Data: Open Food Facts (https://world.openfoodfacts.org), licensed under the ODbL.
 const BASE = 'https://world.openfoodfacts.org/api/v2/product/';
-const FIELDS = 'code,product_name,generic_name,brands,categories_tags,quantity';
+const FIELDS = 'code,product_name,generic_name,brands,categories_tags,quantity,nutriments';
 const USER_AGENT = `EmsMeals/1.0 (+${LEGAL.siteUrl})`;
 
 const DAY = 86400000;
@@ -19,6 +19,35 @@ export { isValidBarcode };
 const clean = (v, max) =>
   typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
 
+const num = (v) => {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v);
+  return null;
+};
+const round1 = (x) => Math.round(x * 10) / 10;
+
+/**
+ * Per-100 g calories, protein, carbs and fat, or null when the data is missing or doesn't add up.
+ * The database is crowd-sourced, so numbers that contradict each other are dropped rather than trusted.
+ */
+export function shapeNutrition(raw) {
+  const n = raw && typeof raw === 'object' ? raw.nutriments : null;
+  if (!n || typeof n !== 'object') return null;
+  let kcal = num(n['energy-kcal_100g']);
+  if (kcal === null) {
+    const kj = num(n['energy-kj_100g']) ?? num(n.energy_100g);
+    if (kj !== null) kcal = kj / 4.184;
+  }
+  const protein = num(n.proteins_100g);
+  const carbs = num(n.carbohydrates_100g);
+  const fat = num(n.fat_100g);
+  if ([kcal, protein, carbs, fat].some((x) => x === null)) return null;
+  if (kcal < 0 || kcal > 900 || protein < 0 || carbs < 0 || fat < 0 || protein > 100 || carbs > 100 || fat > 100 || protein + carbs + fat > 101) return null;
+  // Fibre and alcohol make the maths imperfect, so only clear contradictions are rejected.
+  if (Math.abs(protein * 4 + carbs * 4 + fat * 9 - kcal) > Math.max(30, kcal * 0.4)) return null;
+  return { kcal: round1(kcal), protein: round1(protein), carbs: round1(carbs), fat: round1(fat) };
+}
+
 /** Keep only the few fields we need, as plain bounded strings (never trust the upstream shape). */
 export function shapeProduct(code, raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -30,7 +59,7 @@ export function shapeProduct(code, raw) {
     .slice(0, 12)
     .map((c) => clean(c.slice(3).replace(/-/g, ' '), 60))
     .filter(Boolean);
-  return { code, name, genericName, brands: clean(raw.brands, 120), categories, quantity: clean(raw.quantity, 40) };
+  return { code, name, genericName, brands: clean(raw.brands, 120), categories, quantity: clean(raw.quantity, 40), nutrition: shapeNutrition(raw) };
 }
 
 export function createBarcodeLookup({ db, fetchImpl = globalThis.fetch, now = Date.now, timeoutMs = 6000 } = {}) {
@@ -74,8 +103,10 @@ export function createBarcodeLookup({ db, fetchImpl = globalThis.fetch, now = Da
       const cached = await db.get('SELECT json, fetched_at FROM barcodes WHERE code = ?', [code]);
       if (cached) {
         const ttl = cached.json === 'null' ? MISSING_TTL : FOUND_TTL;
-        if (now() - cached.fetched_at < ttl) {
-          const product = JSON.parse(cached.json);
+        const product = JSON.parse(cached.json);
+        // Entries saved before nutrition was captured have no `nutrition` key; fetch those again once.
+        const stale = product && !('nutrition' in product);
+        if (!stale && now() - cached.fetched_at < ttl) {
           return product ? { found: true, product } : { found: false };
         }
       }

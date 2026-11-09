@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Icon, Tile } from './ui';
-import { CUISINES, FILTER_TAGS, MEAL_LABEL, RECIPES } from '../data/recipes';
+import { CUISINES, FILTER_TAGS, MEAL_LABEL } from '../data/recipes';
+import { useRecipes } from './RecipesContext';
 
 const MEAL_FILTERS = [['all', 'All'], ['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['dinner', 'Dinner']];
 
 export default function Recipes({ favorites, onFavorite, onOpen }) {
+  const { list: RECIPES } = useRecipes(); // macros adjusted for the user's scanned products
   const [query, setQuery] = useState('');
   const [meal, setMeal] = useState('all');
   const [cuisine, setCuisine] = useState('all');
@@ -24,7 +26,7 @@ export default function Recipes({ favorites, onFavorite, onOpen }) {
         active.every((t) => t.test(x)) &&
         (!q || x.name.toLowerCase().includes(q) || x.cuisine.toLowerCase().includes(q) || x.ingredients.some((i) => i.name.includes(q)))
     );
-  }, [query, meal, tags, onlyFavs, favorites]);
+  }, [query, meal, tags, onlyFavs, favorites, RECIPES]);
 
   const counts = useMemo(() => {
     const c = Object.fromEntries(CUISINES.map((k) => [k, 0]));

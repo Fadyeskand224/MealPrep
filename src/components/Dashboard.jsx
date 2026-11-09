@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { Icon, MacroBar, Num, Ring, Tile } from './ui';
 import ExpiryAlert from './ExpiryAlert';
-import { RECIPE_BY_ID, MEALS, MEAL_LABEL } from '../data/recipes';
+import { MEALS, MEAL_LABEL } from '../data/recipes';
+import { useRecipes } from './RecipesContext';
 import { dayTotals, goalsFor } from '../lib/planner';
 import { fmtDay, fmtFull, planDate } from '../lib/store';
 
@@ -9,6 +10,7 @@ export default function Dashboard({
   user, data, day, setDay, onGenerate, onOpen, onSwap, onToggleEaten, expiring = [], onGoPantry,
 }) {
   const { plan, eaten, target } = data;
+  const { byId } = useRecipes(); // macros already adjusted for the user's scanned products
   const goals = goalsFor(target);
   const [slotIdx, setSlotIdx] = useState(0);
   const carousel = useRef(null);
@@ -41,9 +43,11 @@ export default function Dashboard({
 
   const d = plan.days[day];
   const dayEaten = Object.fromEntries(MEALS.map((s) => [s, !!eaten[`${day}:${s}`]]));
-  const planned = dayTotals(d);
-  const done = dayTotals(d, dayEaten);
-  const weekAvg = Math.round(plan.days.reduce((s, x) => s + dayTotals(x).kcal, 0) / 7);
+  const planned = dayTotals(d, undefined, byId);
+  const done = dayTotals(d, dayEaten, byId);
+  const weekAvg = Math.round(plan.days.reduce((s, x) => s + dayTotals(x, undefined, byId).kcal, 0) / 7);
+  // Which scanned products are changing today's numbers (shown under the macro bars).
+  const usedItems = [...new Set(MEALS.flatMap((s) => (byId[d[s]].adjustments || []).map((a) => a.item)))];
   const left = Math.max(0, goals.kcal - done.kcal);
 
   const goSlot = (i) => {
@@ -106,6 +110,11 @@ export default function Dashboard({
         <MacroBar label="Protein" eaten={done.protein} planned={planned.protein} goal={goals.protein} color="linear-gradient(90deg,#ff9a6c,#ff5a36)" />
         <MacroBar label="Carbs" eaten={done.carbs} planned={planned.carbs} goal={goals.carbs} color="linear-gradient(90deg,#ffd36e,#f5a524)" />
         <MacroBar label="Fat" eaten={done.fat} planned={planned.fat} goal={goals.fat} color="linear-gradient(90deg,#b8ee7a,#5fc24a)" />
+        {usedItems.length > 0 && (
+          <p className="adjust-note">
+            <span aria-hidden="true">📊</span> Macros adjusted for your scanned {usedItems.join(', ')}.
+          </p>
+        )}
       </section>
 
       <div className="section-head">
@@ -119,7 +128,7 @@ export default function Dashboard({
 
       <div className="carousel" ref={carousel} onScroll={onScroll} key={day}>
         {MEALS.map((slot, i) => {
-          const rec = RECIPE_BY_ID[d[slot]];
+          const rec = byId[d[slot]];
           const isEaten = dayEaten[slot];
           return (
             <article key={slot} className={`meal ${i === slotIdx ? 'active' : ''} ${isEaten ? 'eaten' : ''}`}>

@@ -14,7 +14,7 @@ let nextId = 1;
  * Full-screen-ish scanner. Every product read by the camera is added to the pantry straight away;
  * the list underneath lets you fix a name or undo, and expiration dates are set later in the pantry.
  */
-export default function ScanSheet({ pantry, onAdd, onRemove, onRename, onClose }) {
+export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClose }) {
   const viewRef = useRef(null); // the scanner adds its own <video> in here
   const scannerRef = useRef(null);
   const recent = useRef(new Map()); // code -> time last handled
@@ -27,16 +27,28 @@ export default function ScanSheet({ pantry, onAdd, onRemove, onRename, onClose }
   pantryRef.current = pantry;
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+  const qtyRef = useRef(qty);
+  qtyRef.current = qty;
 
   const patch = useCallback((id, changes) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...changes } : x))), []);
 
-  /** Adds `name` to the pantry unless it's already there or the pantry is full. Returns the row state. */
-  const addName = useCallback((name) => {
-    if (pantryRef.current.includes(name)) return 'had';
-    if (pantryRef.current.length >= MAX_PANTRY) return 'full';
-    onAdd(name);
-    return 'added';
+  /**
+   * Adds `name` to the pantry. Something already there gets one more (quantity goes up) and the pantry
+   * cap is respected. Returns the row state: 'added' | 'more' | 'full', plus the quantity after adding.
+   */
+  const addName = useCallback((name, nutrition = null) => {
+    const items = pantryRef.current;
+    if (items.includes(name)) {
+      onAdd(name, { qty: 1, nutrition });
+      return { state: 'more', count: (qtyRef.current[name] || 1) + 1 };
+    }
+    if (items.length >= MAX_PANTRY) return { state: 'full', count: 0 };
+    onAdd(name, { qty: 1, nutrition });
+    return { state: 'added', count: 1 };
   }, [onAdd]);
+
+  const announceFor = (state, name, count) =>
+    state === 'added' ? `Added ${name}` : state === 'more' ? `${name}: quantity is now ${count}` : 'Pantry is full';
 
   const handleCode = useCallback(async (raw) => {
     const code = normalizeScan(raw);
@@ -53,12 +65,13 @@ export default function ScanSheet({ pantry, onAdd, onRemove, onRename, onClose }
       if (res.found) {
         const { name } = pantryNameFor(res.product);
         const label = [res.product.brands.split(',')[0], res.product.name || res.product.genericName].filter(Boolean).join(' · ');
+        const nutrition = res.product.nutrition ? { ...res.product.nutrition, label } : null;
         if (!name) {
-          patch(id, { state: 'unnamed', name: '', label, note: 'Found the product but not a name. Type one to add it.' });
+          patch(id, { state: 'unnamed', name: '', label, nutrition, note: 'Found the product but not a name. Type one to add it.' });
         } else {
-          const state = addName(name);
-          patch(id, { state, name, label });
-          setAnnounce(state === 'added' ? `Added ${name}` : state === 'had' ? `${name} is already in your pantry` : 'Pantry is full');
+          const { state, count } = addName(name, nutrition);
+          patch(id, { state, name, label, count, nutrition });
+          setAnnounce(announceFor(state, name, count));
         }
       } else {
         patch(id, { state: 'unnamed', name: '', label: `Barcode ${code}`, note: 'Not in the product database. Type a name to add it.' });
@@ -102,9 +115,9 @@ export default function ScanSheet({ pantry, onAdd, onRemove, onRename, onClose }
     const name = value.trim().toLowerCase().slice(0, 60);
     if (!row || !name) return;
     if (row.state === 'unnamed') {
-      const state = addName(name);
-      patch(id, { state, name });
-      setAnnounce(state === 'added' ? `Added ${name}` : state === 'had' ? `${name} is already in your pantry` : 'Pantry is full');
+      const { state, count } = addName(name, row.nutrition || null);
+      patch(id, { state, name, count });
+      setAnnounce(announceFor(state, name, count));
     } else if (row.state === 'added' && name !== row.name) {
       onRename(row.name, name);
       patch(id, { name });
@@ -113,7 +126,7 @@ export default function ScanSheet({ pantry, onAdd, onRemove, onRename, onClose }
   };
 
   const removeRow = (row) => {
-    if (row.state === 'added') onRemove(row.name); // undo
+    if (row.state === 'added' || row.state === 'more') onUndo(row.name); // one fewer, or removed if it was the only one
     setRows((r) => r.filter((x) => x.id !== row.id));
   };
 
@@ -130,13 +143,15 @@ export default function ScanSheet({ pantry, onAdd, onRemove, onRename, onClose }
       setAnnounce('That barcode number does not look right. Check the digits.');
     } else {
       const name = text.toLowerCase().slice(0, 60);
-      const state = addName(name);
-      setRows((r) => [{ id: nextId++, code: '', state, name, label: 'Typed by you' }, ...r]);
+      const { state, count } = addName(name);
+      setRows((r) => [{ id: nextId++, code: '', state, name, count, label: 'Typed by you' }, ...r]);
+      setAnnounce(announceFor(state, name, count));
     }
   };
 
-  const added = rows.filter((r) => r.state === 'added').length;
-  const close = () => onClose(added);
+  const newItems = rows.filter((r) => r.state === 'added').length;                   // items that were not in the pantry before
+  const scanned = rows.filter((r) => r.state === 'added' || r.state === 'more').length;
+  const close = () => onClose(newItems);
   const problem = { denied: 'Camera access is blocked. Allow it in your browser settings to scan, or type items below.', unsupported: 'This device or browser can’t scan here. You can still type a barcode number or item name below.', busy: 'The camera is busy in another app. Close it and reopen the scanner.', error: 'The scanner couldn’t start. You can still type a barcode number or item name below.' }[status];
 
   return (
@@ -181,17 +196,17 @@ export default function ScanSheet({ pantry, onAdd, onRemove, onRename, onClose }
 
         {rows.length > 0 && (
           <>
-            <h3>This session <small>({added} added)</small></h3>
+            <h3>This session <small>({scanned} scanned)</small></h3>
             <ul className="scan-list">
               {rows.map((row) => (
                 <li key={row.id} className={`scan-row ${row.state}`}>
                   <span className="scan-state" aria-hidden="true">
-                    {row.state === 'looking' ? <span className="spinner dark" /> : row.state === 'added' ? '✓' : row.state === 'had' ? '=' : row.state === 'full' ? '!' : '?'}
+                    {row.state === 'looking' ? <span className="spinner dark" /> : row.state === 'added' ? '✓' : row.state === 'more' ? '+' : row.state === 'full' ? '!' : '?'}
                   </span>
                   <div className="scan-main">
                     <small>{row.label}</small>
-                    {row.state === 'looking' ? null : row.state === 'had' || row.state === 'full' ? (
-                      <b>{row.name} <em>{row.state === 'had' ? 'already in your pantry' : 'pantry full'}</em></b>
+                    {row.state === 'looking' ? null : row.state === 'more' || row.state === 'full' ? (
+                      <b>{row.name} <em>{row.state === 'more' ? `quantity is now ${row.count}` : 'pantry full'}</em></b>
                     ) : (
                       <form
                         className="scan-name"
@@ -217,8 +232,11 @@ export default function ScanSheet({ pantry, onAdd, onRemove, onRename, onClose }
                       </form>
                     )}
                     {row.note && row.state === 'unnamed' && <small className="scan-note">{row.note}</small>}
+                    {row.nutrition && (row.state === 'added' || row.state === 'more') && (
+                      <small className="scan-nutri">📊 {row.nutrition.kcal} kcal · P {row.nutrition.protein} · C {row.nutrition.carbs} · F {row.nutrition.fat} per 100 g, saved for your meal macros</small>
+                    )}
                   </div>
-                  <button className="pitem-x" onClick={() => removeRow(row)} aria-label={row.state === 'added' ? `Undo ${row.name}` : 'Dismiss'}>✕</button>
+                  <button className="pitem-x" onClick={() => removeRow(row)} aria-label={row.state === 'added' || row.state === 'more' ? `Undo ${row.name}` : 'Dismiss'}>✕</button>
                 </li>
               ))}
             </ul>
@@ -231,7 +249,7 @@ export default function ScanSheet({ pantry, onAdd, onRemove, onRename, onClose }
       </div>
       <div className="scan-actions">
         <button className="btn btn-primary btn-block" onClick={close}>
-          {added > 0 ? `Done · ${added} added` : 'Done'}
+          {scanned > 0 ? `Done · ${scanned} scanned` : 'Done'}
         </button>
       </div>
     </Sheet>

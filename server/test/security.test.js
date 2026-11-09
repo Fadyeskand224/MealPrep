@@ -53,6 +53,7 @@ const GOOD_DATA = {
   plan: { createdAt: '2026-11-08', days: Array.from({ length: 7 }, () => ({ breakfast: 'b-1', lunch: 'l-1', dinner: 'd-1' })) },
   eaten: { '0:lunch': true }, pantry: ['eggs'], dislikes: [], favorites: ['b-1'], target: 1500, groceryChecked: { eggs: true },
   pantryExpiry: { eggs: '2026-11-20' }, expiryWarnDays: 3,
+  pantryQty: { eggs: 12 }, pantryNutrition: { eggs: { kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.5, label: 'Farm eggs' } },
 };
 
 test('passwords are stored as salted scrypt hashes, never plaintext', async () => {
@@ -436,5 +437,59 @@ test('older clients without the expiry fields still work and get safe defaults',
   const stored = (await t.call('GET', '/api/data', { cookie: a.cookie })).json.data;
   assert.deepEqual(stored.pantryExpiry, {});
   assert.equal(stored.expiryWarnDays, 3);
+  await t.close();
+});
+
+test('pantry quantities: whole numbers 1-999 only', async () => {
+  const t = await boot();
+  const a = await signup(t);
+  const put = async (patch) => (await t.call('PUT', '/api/data', { cookie: a.cookie, body: { data: { ...GOOD_DATA, ...patch } } })).status;
+  assert.equal(await put({ pantryQty: { eggs: 1, milk: 999 } }), 200);
+  assert.deepEqual((await t.call('GET', '/api/data', { cookie: a.cookie })).json.data.pantryQty, { eggs: 1, milk: 999 });
+  for (const bad of [0, -1, 1000, 2.5, '3', null, NaN, [], {}, true]) assert.equal(await put({ pantryQty: { eggs: bad } }), 400, `quantity ${JSON.stringify(bad)} must be rejected`);
+  for (const bad of [[1], 'many', null, 5]) assert.equal(await put({ pantryQty: bad }), 400);
+  assert.equal(await put({ pantryQty: { ['x'.repeat(100)]: 2 } }), 400, 'overlong item name');
+  assert.equal(await put({ pantryQty: Object.fromEntries(Array.from({ length: 250 }, (_, i) => [`i${i}`, 1])) }), 400, 'too many entries');
+  const proto = await t.call('PUT', '/api/data', { cookie: a.cookie, raw: JSON.stringify({ data: { ...GOOD_DATA } }).replace('"pantryQty":{', '"pantryQty":{"__proto__":1,') });
+  assert.equal(proto.status, 400);
+  assert.equal({}.polluted, undefined);
+  await t.close();
+});
+
+test('pantry nutrition facts: valid per-100g values are stored and cleaned, everything else is rejected', async () => {
+  const t = await boot();
+  const a = await signup(t);
+  const put = async (pantryNutrition) => (await t.call('PUT', '/api/data', { cookie: a.cookie, body: { data: { ...GOOD_DATA, pantryNutrition } } })).status;
+  const ok = { kcal: 359.04, protein: 13, carbs: 71, fat: 2, label: 'Barilla <b>Spaghetti</b>\u0007' };
+  assert.equal(await put({ spaghetti: ok }), 200);
+  const stored = (await t.call('GET', '/api/data', { cookie: a.cookie })).json.data.pantryNutrition;
+  assert.equal(stored.spaghetti.kcal, 359, 'rounded to one decimal');
+  assert.ok(!/[<>\u0000-\u001f]/.test(stored.spaghetti.label), 'label is sanitised');
+  assert.equal(await put({ spaghetti: { kcal: 359, protein: 13, carbs: 71, fat: 2 } }), 200, 'label is optional');
+  const base = { kcal: 100, protein: 5, carbs: 10, fat: 3 };
+  for (const bad of [
+    { ...base, kcal: 901 }, { ...base, kcal: -1 }, { ...base, protein: 101 }, { ...base, carbs: '10' }, { ...base, fat: null }, { ...base, fat: NaN },
+    { ...base, protein: 60, carbs: 60 },                       // more than 100 g of nutrients in 100 g
+    { ...base, extra: 1 }, { ...base, label: 'x'.repeat(200) }, { ...base, label: 5 },
+    { kcal: 100, protein: 5, carbs: 10 },                      // missing fat
+    'lots', null, [1, 2],
+  ]) assert.equal(await put({ spaghetti: bad }), 400, `${JSON.stringify(bad)} must be rejected`);
+  assert.equal(await put({ ['x'.repeat(100)]: base }), 400, 'overlong item name');
+  assert.equal(await put([base]), 400);
+  assert.equal(await put(null), 400);
+  const proto = await t.call('PUT', '/api/data', { cookie: a.cookie, raw: JSON.stringify({ data: { ...GOOD_DATA } }).replace('"pantryNutrition":{', '"pantryNutrition":{"__proto__":{"kcal":1,"protein":1,"carbs":1,"fat":1},') });
+  assert.equal(proto.status, 400);
+  assert.equal({}.polluted, undefined);
+  await t.close();
+});
+
+test('older clients without quantity or nutrition still work and get empty defaults', async () => {
+  const t = await boot();
+  const a = await signup(t);
+  const { pantryQty, pantryNutrition, ...legacy } = GOOD_DATA;
+  assert.equal((await t.call('PUT', '/api/data', { cookie: a.cookie, body: { data: legacy } })).status, 200);
+  const stored = (await t.call('GET', '/api/data', { cookie: a.cookie })).json.data;
+  assert.deepEqual(stored.pantryQty, {});
+  assert.deepEqual(stored.pantryNutrition, {});
   await t.close();
 });

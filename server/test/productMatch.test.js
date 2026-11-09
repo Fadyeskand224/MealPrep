@@ -24,6 +24,8 @@ test('everyday groceries map to the right ingredient', () => {
     [P("Hellmann's Real Mayonnaise", "Hellmann's"), 'mayonnaise'],
     [P('Chicken Breast Boneless Skinless', 'Perdue'), 'chicken breast'],
     [P('Greek Yogurt Plain 0% Fat', 'Fage'), 'greek yogurt'],
+    [P('Greek Yogurt Nonfat Plain', 'chobani'), 'greek yogurt'],
+    [P('Organic GREEK YOGURT plain', 'KIRKLAND Signature'), 'greek yogurt'],
     [P('Large Eggs', 'Eggland'), 'eggs'],
     [P('Sweet Potatoes', ''), 'sweet potato'],
     [P('Roma Tomatoes', ''), 'tomato'],
@@ -57,6 +59,12 @@ test('a different product that merely contains an ingredient word is NOT mapped 
   }
   assert.equal(pantryNameFor(P('Almond Milk', 'Silk')).name, 'almond milk');
   assert.equal(pantryNameFor(P("Campbell's Tomato Soup", "Campbell's")).name, "campbell's tomato soup");
+});
+
+test('a plant-based look-alike is not mistaken for dairy yogurt', () => {
+  const r = pantryNameFor(P('Greek Style Plain', 'alpro', ['plant-based']));
+  assert.notEqual(r.name, 'greek yogurt');
+  assert.equal(r.matched, false);
 });
 
 test('unknown products keep a readable name instead of failing', () => {

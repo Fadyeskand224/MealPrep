@@ -42,6 +42,41 @@ function validateExpiry(obj) {
   return out;
 }
 
+/** { "item name": whole number 1-999 } */
+function validateQty(obj) {
+  if (!isObj(obj)) throw new Error('qty');
+  const keys = Object.keys(obj);
+  if (keys.length > 200) throw new Error('qty size');
+  const out = {};
+  for (const k of keys) {
+    const v = obj[k];
+    if (FORBIDDEN_KEYS.has(k) || !str(k, 60) || !Number.isInteger(v) || v < 1 || v > 999) throw new Error('qty entry');
+    out[k] = v;
+  }
+  return out;
+}
+
+const inRange = (v, max) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max;
+
+/** { "item name": { kcal, protein, carbs, fat, label? } } per 100 g, taken from scanned products. */
+function validateNutrition(obj) {
+  if (!isObj(obj)) throw new Error('nutrition');
+  const keys = Object.keys(obj);
+  if (keys.length > 200) throw new Error('nutrition size');
+  const out = {};
+  for (const k of keys) {
+    const v = obj[k];
+    if (FORBIDDEN_KEYS.has(k) || !str(k, 60) || !isObj(v)) throw new Error('nutrition entry');
+    if (Object.keys(v).some((x) => !['kcal', 'protein', 'carbs', 'fat', 'label'].includes(x))) throw new Error('nutrition keys');
+    if (!inRange(v.kcal, 900) || !inRange(v.protein, 100) || !inRange(v.carbs, 100) || !inRange(v.fat, 100) || v.protein + v.carbs + v.fat > 101) throw new Error('nutrition values');
+    if (v.label !== undefined && (typeof v.label !== 'string' || v.label.length > 120)) throw new Error('nutrition label');
+    const round = (x) => Math.round(x * 10) / 10;
+    out[k] = { kcal: round(v.kcal), protein: round(v.protein), carbs: round(v.carbs), fat: round(v.fat) };
+    if (v.label) out[k].label = v.label.replace(/[\u0000-\u001f\u007f<>]/g, ' ').trim();
+  }
+  return out;
+}
+
 function validateFlags(obj, maxKeys, keyPattern) {
   if (!isObj(obj)) throw new Error('flags');
   const keys = Object.keys(obj);
@@ -58,7 +93,7 @@ function validateFlags(obj, maxKeys, keyPattern) {
 export function validateUserData(data) {
   try {
     if (!isObj(data)) throw new Error('shape');
-    const allowed = ['plan', 'eaten', 'pantry', 'dislikes', 'favorites', 'target', 'groceryChecked', 'pantryExpiry', 'expiryWarnDays'];
+    const allowed = ['plan', 'eaten', 'pantry', 'dislikes', 'favorites', 'target', 'groceryChecked', 'pantryExpiry', 'expiryWarnDays', 'pantryQty', 'pantryNutrition'];
     if (Object.keys(data).some((k) => !allowed.includes(k))) throw new Error('unknown key');
     if (!Number.isInteger(data.target) || data.target < 800 || data.target > 6000) throw new Error('target');
     // Optional so older clients keep working, but if present it must be valid (null is not "absent").
@@ -77,6 +112,8 @@ export function validateUserData(data) {
         groceryChecked: validateFlags(data.groceryChecked ?? {}, 400, null),
         pantryExpiry: validateExpiry('pantryExpiry' in data ? data.pantryExpiry : {}),
         expiryWarnDays: warn,
+        pantryQty: validateQty('pantryQty' in data ? data.pantryQty : {}),
+        pantryNutrition: validateNutrition('pantryNutrition' in data ? data.pantryNutrition : {}),
       },
     };
   } catch {
