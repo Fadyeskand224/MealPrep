@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Icon, Tile } from './ui';
+import { Icon, Qty, Tile } from './ui';
 import ScanSheet from './ScanSheet';
 import ExpiryAlert from './ExpiryAlert';
 import { useRecipes } from './RecipesContext';
@@ -9,17 +9,6 @@ import { expiringItems, labelOf, sortByUrgency, statusOf } from '../lib/expiry';
 
 const QUICK = ['eggs', 'chicken breast', 'rice', 'pasta', 'spinach', 'black beans', 'cheddar cheese', 'tortillas', 'banana', 'onion'];
 const FILTERS = [['all', 'All'], ['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['dinner', 'Dinner']];
-
-// Buttons report "-1" / "+1" (not a new total), so quick successive taps always add up.
-function Qty({ name, value, onDelta }) {
-  return (
-    <div className="qty" role="group" aria-label={`Quantity of ${name}`}>
-      <button type="button" onClick={() => onDelta(-1)} disabled={value <= 1} aria-label={`One fewer ${name}`}>−</button>
-      <span aria-live="polite">{value}</span>
-      <button type="button" onClick={() => onDelta(1)} disabled={value >= 999} aria-label={`One more ${name}`}>+</button>
-    </div>
-  );
-}
 
 export default function Pantry({
   pantry, qty, nutrition, expiry, warnDays, usable,
@@ -227,6 +216,7 @@ export default function Pantry({
           onAdd={onAdd}
           onUndo={onUndo}
           onRename={onRename}
+          onQty={onQty}
           onClose={closeScan}
         />
       )}

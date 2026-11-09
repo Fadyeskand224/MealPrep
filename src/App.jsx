@@ -256,9 +256,12 @@ function Main({ user, initial, onLogout, onDeleted }) {
     });
   const bumpQty = (item, delta) =>
     setData((d) => (d.pantry.includes(item) ? { ...d, pantryQty: { ...d.pantryQty, [item]: clampQty((d.pantryQty[item] || 1) + delta) } } : d));
-  // "Undo" for the scanner: one fewer, or gone entirely if it was the only one.
-  const undoPantry = (item) =>
-    setData((d) => ((d.pantryQty[item] || 1) > 1 ? { ...d, pantryQty: { ...d.pantryQty, [item]: d.pantryQty[item] - 1 } } : dropItem(d, item)));
+  // "Undo" for the scanner: take back `amount` (what that scan added), or drop the item if nothing would be left.
+  const undoPantry = (item, amount = 1) =>
+    setData((d) => {
+      const have = d.pantryQty[item] || 1;
+      return have > amount ? { ...d, pantryQty: { ...d.pantryQty, [item]: have - amount } } : dropItem(d, item);
+    });
   const removePantry = (item) => setData((d) => dropItem(d, item));
   // Fix a name in place (keeps its position, quantity, date and nutrition). Renaming onto an existing item merges them.
   const renamePantry = (from, to) =>

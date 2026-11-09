@@ -166,3 +166,15 @@ export function Icon({ name, size = 22, fill = false }) {
     </svg>
   );
 }
+
+// Buttons report "-1" / "+1" (not a new total), so quick successive taps always add up.
+export function Qty({ name, value, onDelta, max = 999 }) {
+  return (
+    <div className="qty" role="group" aria-label={`Quantity of ${name}`}>
+      <button type="button" onClick={() => onDelta(-1)} disabled={value <= 1} aria-label={`One fewer ${name}`}>−</button>
+      <span aria-live="polite">{value}</span>
+      <button type="button" onClick={() => onDelta(1)} disabled={value >= max} aria-label={`One more ${name}`}>+</button>
+    </div>
+  );
+}
+

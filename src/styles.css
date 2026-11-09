@@ -509,3 +509,8 @@ main { padding-bottom: calc(var(--tab-h) + var(--safe-bottom) + 40px); }
 .adjust-box ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .adjust-box li { display: flex; flex-direction: column; gap: 1px; }
 .adjust-box li span { font-weight: 650; }
+
+/* ───────── Scanner quantities ───────── */
+.per-scan { display: flex; align-items: center; justify-content: space-between; background: #fff; border-radius: 16px; padding: 8px 14px; box-shadow: inset 0 0 0 1.5px var(--line); font-weight: 650; font-size: 14px; }
+.scan-row .qty button { width: 30px; height: 30px; font-size: 18px; }
+.scan-row .qty span { min-width: 24px; font-size: 15px; }

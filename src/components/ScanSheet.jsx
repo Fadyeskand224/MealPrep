@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Icon, Sheet } from './ui';
+import { Icon, Qty, Sheet } from './ui';
 import { api } from '../lib/api';
 import { normalizeScan } from '../lib/barcodeFormat';
 import { pantryNameFor } from '../lib/productMatch';
 import { startScanner } from '../lib/scanner';
+import { parseTypedItem } from '../lib/typedItem';
 import { MAX_PANTRY } from '../lib/store';
 
 const SAME_CODE_COOLDOWN = 4000; // a barcode stays in view for a while; only count it once
@@ -14,7 +15,7 @@ let nextId = 1;
  * Full-screen-ish scanner. Every product read by the camera is added to the pantry straight away;
  * the list underneath lets you fix a name or undo, and expiration dates are set later in the pantry.
  */
-export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClose }) {
+export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onQty, onClose }) {
   const viewRef = useRef(null); // the scanner adds its own <video> in here
   const scannerRef = useRef(null);
   const recent = useRef(new Map()); // code -> time last handled
@@ -29,6 +30,9 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
   rowsRef.current = rows;
   const qtyRef = useRef(qty);
   qtyRef.current = qty;
+  const [perScan, setPerScan] = useState(1); // how many each scan adds (a case of six = set this to 6)
+  const perScanRef = useRef(1);
+  perScanRef.current = perScan;
 
   const patch = useCallback((id, changes) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...changes } : x))), []);
 
@@ -36,15 +40,15 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
    * Adds `name` to the pantry. Something already there gets one more (quantity goes up) and the pantry
    * cap is respected. Returns the row state: 'added' | 'more' | 'full', plus the quantity after adding.
    */
-  const addName = useCallback((name, nutrition = null) => {
+  const addName = useCallback((name, nutrition = null, amount = 1) => {
     const items = pantryRef.current;
     if (items.includes(name)) {
-      onAdd(name, { qty: 1, nutrition });
-      return { state: 'more', count: (qtyRef.current[name] || 1) + 1 };
+      onAdd(name, { qty: amount, nutrition });
+      return { state: 'more', count: Math.min(999, (qtyRef.current[name] || 1) + amount) };
     }
     if (items.length >= MAX_PANTRY) return { state: 'full', count: 0 };
-    onAdd(name, { qty: 1, nutrition });
-    return { state: 'added', count: 1 };
+    onAdd(name, { qty: amount, nutrition });
+    return { state: 'added', count: amount };
   }, [onAdd]);
 
   const announceFor = (state, name, count) =>
@@ -59,7 +63,8 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
     navigator.vibrate?.(40);
 
     const id = nextId++;
-    setRows((r) => [{ id, code, state: 'looking', name: '', label: 'Looking up…' }, ...r]);
+    const amount = perScanRef.current; // fixed now, so changing the control during the lookup doesn't change this scan
+    setRows((r) => [{ id, code, state: 'looking', name: '', label: 'Looking up…', amount }, ...r]);
     try {
       const res = await api(`/barcode/${code}`);
       if (res.found) {
@@ -69,7 +74,7 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
         if (!name) {
           patch(id, { state: 'unnamed', name: '', label, nutrition, note: 'Found the product but not a name. Type one to add it.' });
         } else {
-          const { state, count } = addName(name, nutrition);
+          const { state, count } = addName(name, nutrition, amount);
           patch(id, { state, name, label, count, nutrition });
           setAnnounce(announceFor(state, name, count));
         }
@@ -115,7 +120,7 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
     const name = value.trim().toLowerCase().slice(0, 60);
     if (!row || !name) return;
     if (row.state === 'unnamed') {
-      const { state, count } = addName(name, row.nutrition || null);
+      const { state, count } = addName(name, row.nutrition || null, row.amount || 1);
       patch(id, { state, name, count });
       setAnnounce(announceFor(state, name, count));
     } else if (row.state === 'added' && name !== row.name) {
@@ -126,7 +131,8 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
   };
 
   const removeRow = (row) => {
-    if (row.state === 'added' || row.state === 'more') onUndo(row.name); // one fewer, or removed if it was the only one
+    // Takes back only what this scan added (a scan of 6 removes 6), and removes the item if nothing is left.
+    if (row.state === 'added' || row.state === 'more') onUndo(row.name, row.amount || 1);
     setRows((r) => r.filter((x) => x.id !== row.id));
   };
 
@@ -142,10 +148,11 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
     } else if (/^\d+$/.test(text.replace(/\s+/g, ''))) {
       setAnnounce('That barcode number does not look right. Check the digits.');
     } else {
-      const name = text.toLowerCase().slice(0, 60);
-      const { state, count } = addName(name);
-      setRows((r) => [{ id: nextId++, code: '', state, name, count, label: 'Typed by you' }, ...r]);
-      setAnnounce(announceFor(state, name, count));
+      const typed = parseTypedItem(text); // "12 eggs" adds twelve
+      const amount = typed.qty ?? 1; // "each scan adds" is for scans; typing a plain name adds one, "6 rice" adds six
+      const { state, count } = addName(typed.name, null, amount);
+      setRows((r) => [{ id: nextId++, code: '', state, name: typed.name, count, amount, label: 'Typed by you' }, ...r]);
+      setAnnounce(announceFor(state, typed.name, count));
     }
   };
 
@@ -159,7 +166,7 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
       <div className="sheet-body scan">
         <div className="eyebrow">Add to pantry</div>
         <h2>Scan barcodes</h2>
-        <p className="muted">Point the camera at the barcode on the back of each product. Each one is added instantly. You can set expiration dates afterwards.</p>
+        <p className="muted">Point the camera at the barcode on the back of each product. Each one is added instantly. Scan again, or use the + button, to add more of the same. You can set expiration dates afterwards.</p>
 
         <div className={`scan-view ${status}`}>
           <div className="scan-video" ref={viewRef} />
@@ -177,12 +184,17 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
           {problem && <div className="scan-msg" role="alert">{problem}</div>}
         </div>
 
+        <div className="per-scan">
+          <span>Each scan adds</span>
+          <Qty name="each scan" value={perScan} max={99} onDelta={(d) => setPerScan((v) => Math.max(1, Math.min(99, v + d)))} />
+        </div>
+
         <form className="scan-manual" onSubmit={submitManual}>
           <input
             value={manual}
             onChange={(e) => setManual(e.target.value)}
-            placeholder="Type a barcode number or item name"
-            aria-label="Type a barcode number or item name"
+            placeholder="Type a barcode number, or e.g. 12 eggs"
+            aria-label="Type a barcode number or an item name with an optional amount"
             autoCapitalize="none"
             autoCorrect="off"
             maxLength={60}
@@ -206,7 +218,7 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
                   <div className="scan-main">
                     <small>{row.label}</small>
                     {row.state === 'looking' ? null : row.state === 'more' || row.state === 'full' ? (
-                      <b>{row.name} <em>{row.state === 'more' ? `quantity is now ${row.count}` : 'pantry full'}</em></b>
+                      <b>{row.name} <em>{row.state === 'more' ? `+${row.amount || 1} more` : 'pantry full'}</em></b>
                     ) : (
                       <form
                         className="scan-name"
@@ -236,6 +248,9 @@ export default function ScanSheet({ pantry, qty, onAdd, onUndo, onRename, onClos
                       <small className="scan-nutri">📊 {row.nutrition.kcal} kcal · P {row.nutrition.protein} · C {row.nutrition.carbs} · F {row.nutrition.fat} per 100 g, saved for your meal macros</small>
                     )}
                   </div>
+                  {(row.state === 'added' || row.state === 'more') && (
+                    <Qty name={row.name} value={qty[row.name] || 1} onDelta={(d) => onQty(row.name, d)} />
+                  )}
                   <button className="pitem-x" onClick={() => removeRow(row)} aria-label={row.state === 'added' || row.state === 'more' ? `Undo ${row.name}` : 'Dismiss'}>✕</button>
                 </li>
               ))}
