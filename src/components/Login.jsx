@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { logIn, signUp } from '../lib/auth';
+import { TOWN_URL, NOOK_URL } from '../lib/town';
 
 const ROW_A = ['d-baked-salmon', 'b-banana-pancakes', 'l-tomato-soup-grilled-cheese', 'd-beef-tacos', 'b-avocado-egg-toast', 'd-turkey-chili'];
 const ROW_B = ['l-greek-chickpea-salad', 'd-turkey-meatballs', 'b-overnight-oats', 'l-egg-fried-rice', 'd-chicken-fajitas', 'l-bean-quesadilla'];
@@ -113,6 +114,10 @@ export default function Login({ onAuthed }) {
         <button className="btn btn-primary btn-block" disabled={busy}>
           {busy ? 'One moment…' : mode === 'login' ? 'Log in' : 'Create account'}
         </button>
+
+        <p className="login-legal">
+          <a href={TOWN_URL} rel="noopener">🚗 Ems Town</a> · <a href={NOOK_URL} rel="noopener">📚 EmsNook</a>
+        </p>
 
         <p className="login-legal">
           <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/credits">Credits</a>
