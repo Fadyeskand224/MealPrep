@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { goalsFor } from '../lib/planner';
 import { downloadMyData } from '../lib/auth';
+import { TOWN_URL, NOOK_URL } from '../lib/town';
 
 function DownloadData() {
   const [state, setState] = useState('');
@@ -125,6 +126,12 @@ export default function Profile({ user, data, onTarget, onRestore, onLogout, onC
       </section>
 
       <Security onChangePassword={onChangePassword} onDeleteAccount={onDeleteAccount} />
+
+      <section className="card legal-links">
+        <h2>More from Ems</h2>
+        <a className="row-link" href={TOWN_URL} rel="noopener">🚗 Back to Ems Town <span>›</span></a>
+        <a className="row-link" href={NOOK_URL} rel="noopener">📚 Open EmsNook <span>›</span></a>
+      </section>
 
       <section className="card legal-links">
         <h2>Your data &amp; legal</h2>
