@@ -115,9 +115,10 @@ export default function Login({ onAuthed }) {
           {busy ? 'One moment…' : mode === 'login' ? 'Log in' : 'Create account'}
         </button>
 
-        <p className="login-legal">
-          <a href={TOWN_URL} rel="noopener">🚗 Ems Town</a> · <a href={NOOK_URL} rel="noopener">📚 EmsNook</a>
-        </p>
+        <div className="ems-links">
+          <a className="ems-link ems-link-main" href={TOWN_URL} rel="noopener"><span className="ems-ico" aria-hidden="true">🚗</span><span className="ems-txt"><b>Back to Ems Town</b><small>Drive back to the map</small></span><span className="ems-go" aria-hidden="true">›</span></a>
+          <a className="ems-link" href={NOOK_URL} rel="noopener"><span className="ems-ico" aria-hidden="true">📚</span><span className="ems-txt"><b>EmsNook</b><small>Your cozy bookshelf</small></span><span className="ems-go" aria-hidden="true">›</span></a>
+        </div>
 
         <p className="login-legal">
           <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/credits">Credits</a>

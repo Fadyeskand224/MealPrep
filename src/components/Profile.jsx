@@ -129,8 +129,10 @@ export default function Profile({ user, data, onTarget, onRestore, onLogout, onC
 
       <section className="card legal-links">
         <h2>More from Ems</h2>
-        <a className="row-link" href={TOWN_URL} rel="noopener">🚗 Back to Ems Town <span>›</span></a>
-        <a className="row-link" href={NOOK_URL} rel="noopener">📚 Open EmsNook <span>›</span></a>
+        <div className="ems-links">
+          <a className="ems-link ems-link-main" href={TOWN_URL} rel="noopener"><span className="ems-ico" aria-hidden="true">🚗</span><span className="ems-txt"><b>Back to Ems Town</b><small>Drive back to the map</small></span><span className="ems-go" aria-hidden="true">›</span></a>
+          <a className="ems-link" href={NOOK_URL} rel="noopener"><span className="ems-ico" aria-hidden="true">📚</span><span className="ems-txt"><b>EmsNook</b><small>Your cozy bookshelf</small></span><span className="ems-go" aria-hidden="true">›</span></a>
+        </div>
       </section>
 
       <section className="card legal-links">
